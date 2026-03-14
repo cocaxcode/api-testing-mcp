@@ -1,6 +1,6 @@
 {
   "name": "@cocaxcode/api-testing-mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP server for API testing. 20 tools: HTTP requests, assertions, flows, OpenAPI import, mock data, load testing. Zero cloud dependencies.",
   "type": "module",
   "bin": {
@@ -27,12 +27,20 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "api-testing",
     "http",
     "rest",
     "model-context-protocol",
     "claude",
-    "ai-tools"
+    "claude-desktop",
+    "cursor",
+    "ai-tools",
+    "openapi",
+    "swagger",
+    "load-testing",
+    "mock-data",
+    "postman-alternative"
   ],
   "author": "cocaxcode",
   "license": "MIT",

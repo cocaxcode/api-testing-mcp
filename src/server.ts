@@ -4,10 +4,15 @@ import { registerRequestTool } from './tools/request.js'
 import { registerCollectionTools } from './tools/collection.js'
 import { registerEnvironmentTools } from './tools/environment.js'
 import { registerApiSpecTools } from './tools/api-spec.js'
+import { registerAssertTool } from './tools/assert.js'
+import { registerFlowTool } from './tools/flow.js'
+import { registerUtilityTools } from './tools/utilities.js'
+import { registerMockTool } from './tools/mock.js'
+import { registerLoadTestTool } from './tools/load-test.js'
 
 // Leer version del package.json en build time no es posible con ESM fácilmente,
 // así que la definimos como constante sincronizada manualmente.
-const VERSION = '0.3.0'
+const VERSION = '0.4.0'
 
 /**
  * Crea y configura el MCP server con todos los tools registrados.
@@ -26,6 +31,11 @@ export function createServer(storageDir?: string): McpServer {
   registerCollectionTools(server, storage)
   registerEnvironmentTools(server, storage)
   registerApiSpecTools(server, storage)
+  registerAssertTool(server, storage)
+  registerFlowTool(server, storage)
+  registerUtilityTools(server, storage)
+  registerMockTool(server, storage)
+  registerLoadTestTool(server, storage)
 
   return server
 }

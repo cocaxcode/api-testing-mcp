@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MCP server for API testing. Zero cloud dependencies, local JSON storage.
+MCP server for API testing. Zero cloud dependencies, local JSON storage. 20 tools, 70 tests.
 
 ## Stack
 
@@ -19,10 +19,15 @@ src/
 ├── index.ts          # Entry point (shebang + StdioServerTransport)
 ├── server.ts         # createServer() factory
 ├── tools/            # MCP tool registration (one file per group)
-│   ├── request.ts    # HTTP request tool
+│   ├── request.ts    # HTTP request tool (1)
 │   ├── collection.ts # Collection CRUD tools (4)
 │   ├── environment.ts # Environment tools (5)
-│   └── api-spec.ts   # OpenAPI import/browse tools (3)
+│   ├── api-spec.ts   # OpenAPI import/browse tools (3)
+│   ├── assert.ts     # Assertion testing tool (1)
+│   ├── flow.ts       # Request chaining tool (1)
+│   ├── mock.ts       # Mock data generation tool (1)
+│   ├── load-test.ts  # Load testing tool (1)
+│   └── utilities.ts  # export_curl, diff_responses, bulk_test (3)
 ├── lib/              # Business logic (no MCP dependency)
 │   ├── types.ts      # Shared TypeScript interfaces
 │   ├── http-client.ts # fetch wrapper with timing
@@ -31,7 +36,7 @@ src/
 │   └── openapi-parser.ts # OpenAPI spec parser with $ref resolution
 └── __tests__/
     ├── helpers.ts    # createTestClient() with InMemoryTransport
-    └── *.test.ts     # Test files
+    └── *.test.ts     # 10 test files, 70 tests
 ```
 
 ## Key Patterns
@@ -42,11 +47,12 @@ src/
 - **Error handling**: Return `{ isError: true }`, never throw from tool handlers
 - **Logging**: ONLY `console.error()` — stdout is reserved for JSON-RPC
 - **Storage**: JSON files in `.api-testing/`, configurable via `API_TESTING_DIR` env var
+- **Relative URLs**: URLs starting with `/` auto-prepend BASE_URL from active env
 
 ## Commands
 
 ```bash
-npm test          # Run all tests
+npm test          # Run all tests (70)
 npm run build     # Build with tsup
 npm run typecheck # TypeScript check
 npm run lint      # ESLint

@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#just-talk-to-it">Just Talk to It</a> •
+  <a href="#works-with-any-api">Any API</a> •
   <a href="#features">Features</a> •
   <a href="#tool-reference">Tool Reference</a> •
   <a href="#storage">Storage</a> •
@@ -58,6 +59,79 @@ This tool is designed to be used through natural language. You don't need to mem
 | *"Switch to the production environment"* | Changes active env — all subsequent requests use prod URLs and tokens |
 
 **The AI already knows your API** if you've imported the spec. It knows which fields are required, what types they expect, valid enum values, and what the response looks like. When you say *"create a blog post"*, it doesn't guess — it reads the schema and builds the request correctly.
+
+---
+
+## Works with Any API
+
+This isn't limited to your own backend. You can test **any API** — public, third-party, or internal — and manage them all simultaneously through environments.
+
+### Managing multiple APIs
+
+Set up one environment per API and switch between them instantly:
+
+```
+"Create an environment called github with BASE_URL https://api.github.com"
+"Create an environment called cloudflare with BASE_URL https://api.cloudflare.com/client/v4"
+"Create an environment called dokploy with BASE_URL https://my-server:3000/api"
+"Create an environment called my-backend with BASE_URL http://localhost:3000"
+```
+
+Add authentication variables to each one:
+
+```
+"Set GITHUB_TOKEN in the github environment"
+"Set API_KEY in cloudflare"
+"Set TOKEN in dokploy"
+```
+
+Then just switch context and start working:
+
+```
+"Switch to github"
+"Get my repos"                              → GET /user/repos with Bearer token
+
+"Switch to cloudflare"
+"List all DNS zones"                        → GET /zones with API key auth
+
+"Switch to dokploy"
+"Show me all running projects"              → GET /project with token
+
+"Switch to my-backend"
+"Create a user with random data"            → POST /users with mock body from spec
+```
+
+### Real-world example: testing a third-party API
+
+```
+You: "Set up Cloudflare with my API key"
+You: "List my DNS zones"
+You: "Show me all DNS records for cocaxcode.dev"
+You: "Verify that the A record for api.cocaxcode.dev exists"
+You: "How fast is the zones endpoint under load?"
+You: "Save this request as cf-list-zones with tag cloudflare"
+```
+
+Every request, collection, and spec is isolated per environment. Your Cloudflare tests don't mix with your local backend tests.
+
+### What the storage looks like
+
+```
+.api-testing/
+├── active-env                       # Currently active: "cloudflare"
+├── environments/
+│   ├── github.json                  # { BASE_URL, GITHUB_TOKEN }
+│   ├── cloudflare.json              # { BASE_URL, API_KEY }
+│   ├── dokploy.json                 # { BASE_URL, TOKEN }
+│   └── my-backend.json              # { BASE_URL, TOKEN }
+├── specs/
+│   ├── dokploy.json                 # Imported OpenAPI spec
+│   └── my-backend.json              # Imported OpenAPI spec
+└── collections/
+    ├── cf-list-zones.json           # Saved requests per API
+    ├── gh-my-repos.json
+    └── dok-list-projects.json
+```
 
 ---
 

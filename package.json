@@ -1,7 +1,7 @@
 {
   "name": "@cocaxcode/api-testing-mcp",
   "version": "0.4.1",
-  "description": "MCP server para testing de APIs. Ligero, local, sin dependencias cloud.",
+  "description": "MCP server for API testing. 20 tools: HTTP requests, assertions, flows, OpenAPI import, mock data, load testing. Zero cloud dependencies.",
   "type": "module",
   "bin": {
     "api-testing-mcp": "dist/index.js"

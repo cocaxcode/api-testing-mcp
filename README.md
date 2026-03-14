@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="#installation">Installation</a> •
+  <a href="#just-talk-to-it">Just Talk to It</a> •
   <a href="#features">Features</a> •
   <a href="#tool-reference">Tool Reference</a> •
   <a href="#storage">Storage</a> •
@@ -27,19 +28,36 @@
 
 ## What is this?
 
-An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant (Claude, Cursor, or any MCP-compatible client) the ability to interact with APIs. Instead of switching to Postman or writing curl commands, you just describe what you want in plain language:
+An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to interact with any API. It works with Claude Code, Claude Desktop, Cursor, and any MCP-compatible client.
 
-```
-You:  "Hit the login endpoint with test@example.com and password123,
-       then use the token to fetch all users"
+You describe what you need. The AI figures out the rest.
 
-AI:   → Calls flow_run with 2 steps
-      → Extracts token from login response
-      → Passes it to GET /users via Authorization header
-      → Shows you the results
-```
+No cloud accounts. No subscriptions. Everything runs locally and stores data as plain JSON files you can commit to git.
 
-No cloud. No accounts. Everything runs locally and stores data as plain JSON files you can version with git.
+---
+
+## Just Talk to It
+
+This tool is designed to be used through natural language. You don't need to memorize tool names, parameters, or JSON structures — just tell the AI what you want, and it translates your intent into the right API calls.
+
+**Here's what a real conversation looks like:**
+
+| You say | What happens behind the scenes |
+|---------|-------------------------------|
+| *"Set up an environment for my local API on port 3000"* | Creates environment with `BASE_URL=http://localhost:3000` |
+| *"Import my API spec from /api-docs-json"* | Downloads the OpenAPI spec, stores all endpoints and schemas |
+| *"Show me all user endpoints"* | Filters and lists endpoints tagged `users` |
+| *"Get all users"* | `GET /api/users` → shows the response |
+| *"Create a user with random data"* | Reads the spec, generates valid mock data, sends `POST /api/users` |
+| *"Verify that deleting user 5 returns 204"* | Runs the request + assertion in one step |
+| *"Login as admin and then fetch the dashboard stats"* | Chains 2 requests: login → extract token → use token for next call |
+| *"How fast is the health endpoint under load?"* | Fires 50 concurrent requests, reports p50/p95/p99 latencies |
+| *"Run all my saved smoke tests"* | Executes every request tagged `smoke`, reports pass/fail |
+| *"Export the create-user request as curl"* | Builds a ready-to-paste cURL command with resolved variables |
+| *"Compare the users endpoint between dev and prod"* | Hits both URLs, diffs status codes, body, and timing |
+| *"Switch to the production environment"* | Changes active env — all subsequent requests use prod URLs and tokens |
+
+**The AI already knows your API** if you've imported the spec. It knows which fields are required, what types they expect, valid enum values, and what the response looks like. When you say *"create a blog post"*, it doesn't guess — it reads the schema and builds the request correctly.
 
 ---
 
@@ -68,13 +86,21 @@ Add to your MCP configuration file:
 
 ### First steps
 
-Once installed, set up an environment so the tool knows where your API lives:
+Set up an environment so the tool knows where your API lives:
 
 ```
 "Create an environment called dev with BASE_URL http://localhost:3000"
 ```
 
-From here, you can use relative paths. `/api/users` automatically becomes `http://localhost:3000/api/users`.
+From here, relative paths work automatically. `/api/users` becomes `http://localhost:3000/api/users`.
+
+If your API has Swagger/OpenAPI, import the spec:
+
+```
+"Import my API spec from http://localhost:3000/api-docs-json"
+```
+
+Now the AI knows every endpoint, parameter, and schema in your API. You're ready to go.
 
 ---
 
@@ -82,7 +108,7 @@ From here, you can use relative paths. `/api/users` automatically becomes `http:
 
 ### HTTP Requests
 
-Execute any HTTP method with headers, body, query params, and built-in auth support (Bearer, API Key, Basic). Relative URLs are resolved automatically from the active environment.
+Execute any HTTP method with headers, body, query params, and built-in auth. Relative URLs resolve from the active environment. Variables like `{{TOKEN}}` are replaced from environment values.
 
 ```
 request({
@@ -93,9 +119,11 @@ request({
 })
 ```
 
+**Supports:** GET · POST · PUT · PATCH · DELETE · HEAD · OPTIONS — Headers · Query params · JSON body · Bearer / API Key / Basic auth · Timeout · `{{variable}}` interpolation
+
 ### Assertions
 
-Run a request and validate the response against a set of rules. Supports 10 operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `exists`, `type`.
+Run a request and validate the response against a set of rules in one step. Get structured pass/fail results.
 
 ```
 assert({
@@ -118,9 +146,11 @@ GET /api/health → 200 OK (42ms)
 ✅ timing.total_ms < 500
 ```
 
+**Operators:** `eq` · `neq` · `gt` · `gte` · `lt` · `lte` · `contains` · `not_contains` · `exists` · `type`
+
 ### Request Flows
 
-Chain multiple requests together. Extract values from one response and inject them into the next step using `{{variables}}`.
+Chain multiple requests together. Extract values from one response and inject them into the next step using `{{variables}}`. Perfect for auth flows, CRUD sequences, and multi-step testing.
 
 ```
 flow_run({
@@ -144,7 +174,7 @@ flow_run({
 
 ### OpenAPI Import
 
-Import your Swagger/OpenAPI spec so the AI understands your entire API surface — every endpoint, every parameter, every schema. Works from URL or local file.
+Import your Swagger/OpenAPI spec from a URL or local file. Once imported, the AI understands every endpoint, parameter, and schema — no guessing, no memorizing.
 
 ```
 api_import({ name: "my-backend", source: "http://localhost:3000/api-docs-json" })
@@ -152,19 +182,12 @@ api_endpoints({ name: "my-backend", tag: "users" })
 api_endpoint_detail({ name: "my-backend", method: "POST", path: "/users" })
 ```
 
-Once imported, the AI knows exactly what fields are required, what types they expect, and what responses to anticipate — no guessing.
-
 ### Mock Data Generation
 
-Generate realistic fake data from your OpenAPI spec. Useful for frontend development when the backend isn't ready, or for populating test scenarios.
+Generate realistic fake data from your OpenAPI spec. Respects types, formats (`email`, `uuid`, `date-time`), enums, and required fields. Use `count` for arrays.
 
 ```
-mock({
-  name: "my-backend",
-  method: "POST",
-  path: "/users",
-  target: "request"
-})
+mock({ name: "my-backend", method: "POST", path: "/users", target: "request" })
 ```
 
 ```json
@@ -176,18 +199,12 @@ mock({
 }
 ```
 
-Respects schema types, formats (`email`, `uuid`, `date-time`), enums, and required fields. Use `count` to generate arrays of N items.
-
 ### Load Testing
 
-Launch concurrent requests against an endpoint and get performance metrics: min, avg, p50, p95, p99, max, and requests per second.
+Fire N concurrent requests and get performance metrics: min, avg, percentiles (p50/p95/p99), max, and requests per second.
 
 ```
-load_test({
-  method: "GET",
-  url: "/api/health",
-  concurrent: 50
-})
+load_test({ method: "GET", url: "/api/health", concurrent: 50 })
 ```
 
 ```
@@ -195,21 +212,17 @@ load_test({
 
 Requests:        50 concurrent
 Successful:      50 | Failed: 0
-Wall time:       2145ms
 Requests/sec:    23.31
 
 ⏱️  Response times:
-  Min:   45ms
-  Avg:   187ms
-  p50:   156ms
-  p95:   412ms
-  p99:   523ms
-  Max:   567ms
+  Min:   45ms  |  Avg:  187ms
+  p50:  156ms  |  p95:  412ms
+  p99:  523ms  |  Max:  567ms
 ```
 
 ### Response Diffing
 
-Execute two requests and compare their responses field by field. Ideal for regression testing or comparing environments.
+Execute two requests and compare their responses field by field. Detect regressions or compare environments (dev vs prod).
 
 ```
 diff_responses({
@@ -227,21 +240,17 @@ bulk_test({ tag: "smoke" })
 ```
 
 ```
-✅ BULK TEST — 8/8 passed | 1234ms total
+✅ BULK TEST — 8/8 passed | 1.2s total
 
-✅ health-check — GET /health → 200 (45ms)
-✅ list-users — GET /users → 200 (123ms)
-✅ create-post — POST /blog → 201 (89ms)
-✅ login — POST /auth/login → 200 (156ms)
+✅ health       — GET  /health      → 200 (45ms)
+✅ list-users   — GET  /users       → 200 (123ms)
+✅ create-post  — POST /blog        → 201 (89ms)
+✅ login        — POST /auth/login  → 200 (156ms)
 ```
 
 ### cURL Export
 
-Convert any saved request into a ready-to-use cURL command. Variables from the active environment are resolved automatically.
-
-```
-export_curl({ name: "create-user" })
-```
+Convert any saved request into a cURL command with resolved variables.
 
 ```bash
 curl -X POST \
@@ -253,13 +262,7 @@ curl -X POST \
 
 ### Collections & Environments
 
-Save requests for reuse, organize them with tags, and manage variables across environments.
-
-```
-collection_save({ name: "create-user", request: {...}, tags: ["users", "write"] })
-env_create({ name: "prod", variables: { BASE_URL: "https://api.example.com" } })
-env_switch({ name: "prod" })
-```
+Save requests for reuse (with tags), manage variables across environments (dev/staging/prod), and switch contexts instantly.
 
 ---
 
@@ -282,31 +285,25 @@ env_switch({ name: "prod" })
 
 ## Storage
 
-All data lives in `.api-testing/` as plain JSON files — no database, no cloud sync:
+All data lives in `.api-testing/` as plain JSON — no database, no cloud sync:
 
 ```
 .api-testing/
-├── active-env                     # Currently active environment name
-├── collections/
-│   └── create-user.json           # Saved requests
-├── environments/
-│   ├── dev.json                   # { name, variables, timestamps }
-│   └── prod.json
-└── specs/
-    └── my-backend.json            # Imported OpenAPI specs
+├── active-env                     # Active environment name
+├── collections/                   # Saved requests
+├── environments/                  # Environment variables (dev, prod, ...)
+└── specs/                         # Imported OpenAPI specs
 ```
 
-**Custom directory:**
+Override the default directory:
 
 ```json
 {
-  "env": {
-    "API_TESTING_DIR": "/path/to/shared/.api-testing"
-  }
+  "env": { "API_TESTING_DIR": "/path/to/shared/.api-testing" }
 }
 ```
 
-These files are plain JSON — commit them to git to share collections, environments, and API specs across your team.
+Commit these files to git to share across your team.
 
 ---
 

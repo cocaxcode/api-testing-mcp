@@ -139,4 +139,60 @@ describe('request tool', () => {
     // Verificar que la URL se resolvió correctamente
     expect(response.body.url).toBe('https://httpbin.org/get')
   })
+
+  it('URL relativa con / usa BASE_URL del entorno activo automáticamente', async () => {
+    // Crear y activar entorno con BASE_URL
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: {
+        name: 'relative-url-env',
+        variables: { BASE_URL: 'https://httpbin.org' },
+      },
+    })
+    await ctx.client.callTool({
+      name: 'env_switch',
+      arguments: { name: 'relative-url-env' },
+    })
+
+    // Request con URL relativa — debe auto-prepend BASE_URL
+    const result = await ctx.client.callTool({
+      name: 'request',
+      arguments: {
+        method: 'GET',
+        url: '/get',
+      },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    const response = JSON.parse(text)
+    expect(response.status).toBe(200)
+    expect(response.body.url).toBe('https://httpbin.org/get')
+  })
+
+  it('URL relativa sin BASE_URL configurada retorna error', async () => {
+    // Crear entorno SIN BASE_URL
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: {
+        name: 'no-base-env',
+        variables: { TOKEN: 'abc' },
+      },
+    })
+    await ctx.client.callTool({
+      name: 'env_switch',
+      arguments: { name: 'no-base-env' },
+    })
+
+    // Request con URL relativa — no hay BASE_URL, debe fallar
+    const result = await ctx.client.callTool({
+      name: 'request',
+      arguments: {
+        method: 'GET',
+        url: '/api/health',
+      },
+    })
+
+    expect(result.isError).toBe(true)
+  })
 })

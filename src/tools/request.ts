@@ -17,12 +17,16 @@ const AuthSchema = {
 export function registerRequestTool(server: McpServer, storage: Storage): void {
   server.tool(
     'request',
-    'Ejecuta un HTTP request. Soporta {{variables}} del entorno activo para URL, headers y body.',
+    'Ejecuta un HTTP request. URLs relativas (/path) usan BASE_URL del entorno activo. Soporta {{variables}}.',
     {
       method: z
         .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
         .describe('HTTP method'),
-      url: z.string().describe('URL del endpoint. Soporta {{variables}} de entorno'),
+      url: z
+        .string()
+        .describe(
+          'URL del endpoint. Si empieza con / se antepone BASE_URL del entorno activo. Soporta {{variables}}.',
+        ),
       headers: z
         .record(z.string())
         .optional()
@@ -43,10 +47,18 @@ export function registerRequestTool(server: McpServer, storage: Storage): void {
         // Cargar variables del entorno activo
         const variables = await storage.getActiveVariables()
 
+        // Auto-prepend BASE_URL para URLs relativas (empiezan con /)
+        let resolvedUrl = params.url
+        if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
+          // Quitar trailing slash de BASE_URL para evitar doble slash
+          const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
+          resolvedUrl = `${baseUrl}${resolvedUrl}`
+        }
+
         // Construir RequestConfig
         const config: RequestConfig = {
           method: params.method,
-          url: params.url,
+          url: resolvedUrl,
           headers: params.headers,
           body: params.body,
           query: params.query,

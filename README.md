@@ -62,10 +62,19 @@ claude mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp
 
 Execute an HTTP request with optional authentication and variable interpolation.
 
+Relative URLs (starting with `/`) automatically use `BASE_URL` from the active environment — no need to write `{{BASE_URL}}` every time.
+
 ```
+// Relative URL — auto-prepends BASE_URL from active environment
+request({ method: "GET", url: "/api/users" })
+
+// Equivalent to:
+request({ method: "GET", url: "{{BASE_URL}}/api/users" })
+
+// Full example with all options
 request({
   method: "GET",
-  url: "{{BASE_URL}}/api/users",
+  url: "/api/users",
   headers: { "Authorization": "Bearer {{TOKEN}}" },
   query: { "page": "1" },
   timeout: 5000

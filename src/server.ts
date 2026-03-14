@@ -12,7 +12,7 @@ import { registerLoadTestTool } from './tools/load-test.js'
 
 // Leer version del package.json en build time no es posible con ESM fácilmente,
 // así que la definimos como constante sincronizada manualmente.
-const VERSION = '0.4.0'
+const VERSION = '0.5.2'
 
 /**
  * Crea y configura el MCP server con todos los tools registrados.

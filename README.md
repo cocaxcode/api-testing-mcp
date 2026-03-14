@@ -183,6 +183,39 @@ Switch the active environment. Active environment variables are used for `{{inte
 env_switch({ name: "prod" })
 ```
 
+### `api_import`
+
+Import an OpenAPI/Swagger spec from a URL or local file. Endpoints and schemas are stored locally for browsing.
+
+```
+api_import({
+  name: "my-backend",
+  source: "http://localhost:3001/api-docs-json"
+})
+
+// Or from a local file:
+api_import({ name: "my-backend", source: "./openapi.json" })
+```
+
+### `api_endpoints`
+
+List endpoints from an imported API. Filter by tag, method, or path.
+
+```
+api_endpoints({ name: "my-backend" })
+api_endpoints({ name: "my-backend", tag: "users" })
+api_endpoints({ name: "my-backend", method: "POST" })
+api_endpoints({ name: "my-backend", path: "/blog" })
+```
+
+### `api_endpoint_detail`
+
+Get full details of an endpoint: parameters, request body schema, and responses. Useful to know what data to send.
+
+```
+api_endpoint_detail({ name: "my-backend", method: "POST", path: "/blog" })
+```
+
 ## Storage
 
 All data is stored locally as JSON files in `.api-testing/` (in your current working directory by default):
@@ -193,9 +226,11 @@ All data is stored locally as JSON files in `.api-testing/` (in your current wor
 ├── collections/
 │   ├── get-users.json
 │   └── create-post.json
-└── environments/
-    ├── dev.json
-    └── prod.json
+├── environments/
+│   ├── dev.json
+│   └── prod.json
+└── specs/
+    └── my-backend.json           # Imported OpenAPI specs
 ```
 
 You can version these files in git if you want to share collections and environments with your team.

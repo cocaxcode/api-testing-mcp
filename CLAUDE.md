@@ -21,12 +21,14 @@ src/
 ├── tools/            # MCP tool registration (one file per group)
 │   ├── request.ts    # HTTP request tool
 │   ├── collection.ts # Collection CRUD tools (4)
-│   └── environment.ts # Environment tools (5)
+│   ├── environment.ts # Environment tools (5)
+│   └── api-spec.ts   # OpenAPI import/browse tools (3)
 ├── lib/              # Business logic (no MCP dependency)
 │   ├── types.ts      # Shared TypeScript interfaces
 │   ├── http-client.ts # fetch wrapper with timing
 │   ├── storage.ts    # JSON file storage in .api-testing/
-│   └── interpolation.ts # {{variable}} resolver
+│   ├── interpolation.ts # {{variable}} resolver
+│   └── openapi-parser.ts # OpenAPI spec parser with $ref resolution
 └── __tests__/
     ├── helpers.ts    # createTestClient() with InMemoryTransport
     └── *.test.ts     # Test files

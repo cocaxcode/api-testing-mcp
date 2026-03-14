@@ -69,3 +69,64 @@ export interface EnvironmentListItem {
   active: boolean
   variableCount: number
 }
+
+// ── API Spec (OpenAPI) ──
+
+export interface ApiSpecEndpoint {
+  method: HttpMethod
+  path: string
+  summary?: string
+  description?: string
+  tags?: string[]
+  parameters?: ApiSpecParameter[]
+  requestBody?: ApiSpecRequestBody
+  responses?: Record<string, ApiSpecResponse>
+}
+
+export interface ApiSpecParameter {
+  name: string
+  in: 'path' | 'query' | 'header' | 'cookie'
+  required?: boolean
+  description?: string
+  schema?: ApiSpecSchema
+}
+
+export interface ApiSpecRequestBody {
+  required?: boolean
+  description?: string
+  content?: Record<string, { schema?: ApiSpecSchema }>
+}
+
+export interface ApiSpecResponse {
+  description?: string
+  content?: Record<string, { schema?: ApiSpecSchema }>
+}
+
+export interface ApiSpecSchema {
+  type?: string
+  format?: string
+  properties?: Record<string, ApiSpecSchema>
+  items?: ApiSpecSchema
+  required?: string[]
+  enum?: unknown[]
+  description?: string
+  example?: unknown
+  $ref?: string
+}
+
+export interface ApiSpec {
+  name: string
+  source: string
+  version?: string
+  endpoints: ApiSpecEndpoint[]
+  schemas: Record<string, ApiSpecSchema>
+  importedAt: string
+  updatedAt: string
+}
+
+export interface ApiSpecListItem {
+  name: string
+  source: string
+  endpointCount: number
+  version?: string
+}

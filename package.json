@@ -1,6 +1,6 @@
 {
   "name": "@cocaxcode/api-testing-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server para testing de APIs. Ligero, local, sin dependencias cloud.",
   "type": "module",
   "bin": {

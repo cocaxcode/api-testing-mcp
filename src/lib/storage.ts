@@ -5,18 +5,22 @@ import type {
   CollectionListItem,
   Environment,
   EnvironmentListItem,
+  ApiSpec,
+  ApiSpecListItem,
 } from './types.js'
 
 export class Storage {
   private readonly baseDir: string
   private readonly collectionsDir: string
   private readonly environmentsDir: string
+  private readonly specsDir: string
   private readonly activeEnvFile: string
 
   constructor(baseDir?: string) {
     this.baseDir = baseDir ?? process.env.API_TESTING_DIR ?? join(process.cwd(), '.api-testing')
     this.collectionsDir = join(this.baseDir, 'collections')
     this.environmentsDir = join(this.baseDir, 'environments')
+    this.specsDir = join(this.baseDir, 'specs')
     this.activeEnvFile = join(this.baseDir, 'active-env')
   }
 
@@ -141,6 +145,49 @@ export class Storage {
 
     const env = await this.getEnvironment(activeName)
     return env?.variables ?? {}
+  }
+
+  // ── API Specs ──
+
+  async saveSpec(spec: ApiSpec): Promise<void> {
+    await this.ensureDir('specs')
+    const filePath = join(this.specsDir, `${this.sanitizeName(spec.name)}.json`)
+    await this.writeJson(filePath, spec)
+  }
+
+  async getSpec(name: string): Promise<ApiSpec | null> {
+    const filePath = join(this.specsDir, `${this.sanitizeName(name)}.json`)
+    return this.readJson<ApiSpec>(filePath)
+  }
+
+  async listSpecs(): Promise<ApiSpecListItem[]> {
+    await this.ensureDir('specs')
+    const files = await this.listJsonFiles(this.specsDir)
+    const items: ApiSpecListItem[] = []
+
+    for (const file of files) {
+      const spec = await this.readJson<ApiSpec>(join(this.specsDir, file))
+      if (!spec) continue
+
+      items.push({
+        name: spec.name,
+        source: spec.source,
+        endpointCount: spec.endpoints.length,
+        version: spec.version,
+      })
+    }
+
+    return items
+  }
+
+  async deleteSpec(name: string): Promise<boolean> {
+    const filePath = join(this.specsDir, `${this.sanitizeName(name)}.json`)
+    try {
+      await unlink(filePath)
+      return true
+    } catch {
+      return false
+    }
   }
 
   // ── Internal ──

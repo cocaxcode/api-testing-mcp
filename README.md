@@ -1,45 +1,59 @@
-# @cocaxcode/api-testing-mcp
+<p align="center">
+  <h1 align="center">@cocaxcode/api-testing-mcp</h1>
+  <p align="center">
+    A complete API testing toolkit built for AI coding agents.<br/>
+    Test, validate, mock, and load-test your APIs — all from natural language.
+  </p>
+</p>
 
-[![npm version](https://img.shields.io/npm/v/@cocaxcode/api-testing-mcp.svg)](https://www.npmjs.com/package/@cocaxcode/api-testing-mcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-70%20passing-brightgreen)]()
-[![Node](https://img.shields.io/badge/node-%3E%3D20-blue)]()
+<p align="center">
+  <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/v/@cocaxcode/api-testing-mcp.svg?style=flat-square&color=cb3837" alt="npm version" /></a>
+  <a href="https://github.com/cocaxcode/api-testing-mcp/actions"><img src="https://img.shields.io/github/actions/workflow/status/cocaxcode/api-testing-mcp/ci.yml?style=flat-square&label=CI" alt="CI" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
+  <img src="https://img.shields.io/badge/tests-70%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tools-20-blueviolet?style=flat-square" alt="Tools" />
+  <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
+</p>
 
-**The API testing toolkit for AI coding agents.** Test APIs directly from Claude Code, Claude Desktop, Cursor, or any MCP client — using natural language.
-
-> "Test my login endpoint with invalid credentials"
-> "Import the API spec and show me all blog endpoints"
-> "Run a load test with 50 concurrent requests to /health"
-> "Generate mock data for the create user endpoint"
-
-Zero cloud dependencies. Everything stored locally as JSON.
-
----
-
-## Why?
-
-| Problem | Solution |
-|---------|----------|
-| Switching between Postman and your IDE | Test APIs without leaving your editor |
-| Remembering endpoint URLs and body schemas | Import your OpenAPI spec — the AI knows your API |
-| Writing `{{BASE_URL}}/api/users` every time | Just write `/api/users` — BASE_URL is auto-resolved |
-| Manual regression testing | `bulk_test` runs your entire collection in seconds |
-| No idea what data to send | `mock` generates fake data from your API spec |
-| Testing auth flows manually | `flow_run` chains requests — login → extract token → use it |
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#features">Features</a> •
+  <a href="#tool-reference">Tool Reference</a> •
+  <a href="#storage">Storage</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
 ---
 
-## Quick Start
+## What is this?
 
-### Install in Claude Code
+An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant (Claude, Cursor, or any MCP-compatible client) the ability to interact with APIs. Instead of switching to Postman or writing curl commands, you just describe what you want in plain language:
+
+```
+You:  "Hit the login endpoint with test@example.com and password123,
+       then use the token to fetch all users"
+
+AI:   → Calls flow_run with 2 steps
+      → Extracts token from login response
+      → Passes it to GET /users via Authorization header
+      → Shows you the results
+```
+
+No cloud. No accounts. Everything runs locally and stores data as plain JSON files you can version with git.
+
+---
+
+## Installation
+
+### Claude Code
 
 ```bash
 claude mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp
 ```
 
-### Install in Claude Desktop / Cursor
+### Claude Desktop / Cursor / Any MCP Client
 
-Add to your MCP config:
+Add to your MCP configuration file:
 
 ```json
 {
@@ -52,51 +66,49 @@ Add to your MCP config:
 }
 ```
 
-### Setup your environment
+### First steps
+
+Once installed, set up an environment so the tool knows where your API lives:
 
 ```
-"Create an environment called dev with BASE_URL http://localhost:3000 and TOKEN my-dev-token"
+"Create an environment called dev with BASE_URL http://localhost:3000"
 ```
 
-That's it. Now just talk:
-
-```
-"GET /api/health"
-"Create a blog post with random data"
-"Show me all users sorted by creation date"
-```
+From here, you can use relative paths. `/api/users` automatically becomes `http://localhost:3000/api/users`.
 
 ---
 
-## Features & Examples
+## Features
 
-### 🌐 HTTP Requests — `request`
+### HTTP Requests
 
-Execute any HTTP request with full control. Relative URLs (`/path`) auto-resolve using `BASE_URL` from the active environment.
-
-```
-"GET /api/users"
-"POST /api/blog with title 'Hello World' and content 'My first post'"
-"DELETE /api/users/123 with Bearer token abc123"
-```
-
-**Supports:** GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS | Headers | Query params | JSON body | Auth (Bearer, API Key, Basic) | Timeout | Variable interpolation `{{VAR}}`
-
----
-
-### ✅ Assertions — `assert`
-
-Execute a request AND validate the response in one step. Get structured pass/fail results.
+Execute any HTTP method with headers, body, query params, and built-in auth support (Bearer, API Key, Basic). Relative URLs are resolved automatically from the active environment.
 
 ```
-"Assert that GET /api/health returns status 200 and body.status equals 'ok'"
-"Verify POST /api/login with wrong password returns 401"
-"Check that GET /api/users responds in less than 500ms"
+request({
+  method: "POST",
+  url: "/api/users",
+  body: { name: "Jane", email: "jane@company.com" },
+  auth: { type: "bearer", token: "{{TOKEN}}" }
+})
 ```
 
-**Available operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `exists`, `type`
+### Assertions
 
-**Output:**
+Run a request and validate the response against a set of rules. Supports 10 operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `exists`, `type`.
+
+```
+assert({
+  method: "GET",
+  url: "/api/health",
+  assertions: [
+    { path: "status", operator: "eq", expected: 200 },
+    { path: "body.status", operator: "eq", expected: "ok" },
+    { path: "timing.total_ms", operator: "lt", expected: 500 }
+  ]
+})
+```
+
 ```
 ✅ PASS — 3/3 assertions passed
 GET /api/health → 200 OK (42ms)
@@ -106,270 +118,219 @@ GET /api/health → 200 OK (42ms)
 ✅ timing.total_ms < 500
 ```
 
----
+### Request Flows
 
-### 🔗 Flow — `flow_run`
-
-Chain multiple requests in sequence. Extract data from one response and use it in the next step with `{{variables}}`.
+Chain multiple requests together. Extract values from one response and inject them into the next step using `{{variables}}`.
 
 ```
-"Run a flow: first login with email admin@test.com and password 123456,
- extract the token from body.token,
- then use that token to GET /api/users"
+flow_run({
+  steps: [
+    {
+      name: "login",
+      method: "POST",
+      url: "/auth/login",
+      body: { email: "admin@test.com", password: "123456" },
+      extract: { "TOKEN": "body.access_token" }
+    },
+    {
+      name: "get-users",
+      method: "GET",
+      url: "/api/users",
+      headers: { "Authorization": "Bearer {{TOKEN}}" }
+    }
+  ]
+})
 ```
 
-**Output:**
-```
-✅ FLOW COMPLETO — 2/2 pasos ejecutados
+### OpenAPI Import
 
-✅ Paso 1: login
-   Status: 200 | Tiempo: 145ms
-   Extraído: TOKEN=eyJhbGciOiJIUzI1NiIs...
-
-✅ Paso 2: get-users
-   Status: 200 | Tiempo: 89ms
-```
-
----
-
-### 📋 OpenAPI Import — `api_import`, `api_endpoints`, `api_endpoint_detail`
-
-Import your Swagger/OpenAPI spec so the AI knows your entire API — endpoints, schemas, required fields, everything.
+Import your Swagger/OpenAPI spec so the AI understands your entire API surface — every endpoint, every parameter, every schema. Works from URL or local file.
 
 ```
-"Import my API from http://localhost:3000/api-docs-json"
-"What endpoints does the blog module have?"
-"Show me the details of POST /api/users — what fields does it need?"
+api_import({ name: "my-backend", source: "http://localhost:3000/api-docs-json" })
+api_endpoints({ name: "my-backend", tag: "users" })
+api_endpoint_detail({ name: "my-backend", method: "POST", path: "/users" })
 ```
 
-**Output:**
-```
-API 'my-backend' imported — 24 endpoints, 15 schemas
+Once imported, the AI knows exactly what fields are required, what types they expect, and what responses to anticipate — no guessing.
 
-Endpoints by tag:
-  auth: 3 endpoints
-  users: 5 endpoints
-  blog: 6 endpoints
-  projects: 4 endpoints
-```
+### Mock Data Generation
 
----
-
-### 🎭 Mock Data — `mock`
-
-Generate realistic fake data from your OpenAPI spec. Perfect for frontend development without a running backend.
+Generate realistic fake data from your OpenAPI spec. Useful for frontend development when the backend isn't ready, or for populating test scenarios.
 
 ```
-"Generate mock data for creating a user"
-"Give me 10 fake blog posts based on the API spec"
-"What would the response of GET /api/projects look like?"
+mock({
+  name: "my-backend",
+  method: "POST",
+  path: "/users",
+  target: "request"
+})
 ```
 
-**Output:**
 ```json
 {
-  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "email": "user42@example.com",
   "name": "Test User 73",
-  "role": "admin",
-  "active": true
+  "password": "TestPass123!",
+  "role": "admin"
 }
 ```
 
----
+Respects schema types, formats (`email`, `uuid`, `date-time`), enums, and required fields. Use `count` to generate arrays of N items.
 
-### 📊 Load Test — `load_test`
+### Load Testing
 
-Launch N concurrent requests and get performance stats: avg, min, max, percentiles, requests/second.
+Launch concurrent requests against an endpoint and get performance metrics: min, avg, p50, p95, p99, max, and requests per second.
 
 ```
-"Run a load test with 50 concurrent requests to GET /api/health"
-"Load test POST /api/search with 20 concurrent requests"
+load_test({
+  method: "GET",
+  url: "/api/health",
+  concurrent: 50
+})
 ```
 
-**Output:**
 ```
 📊 LOAD TEST — GET /api/health
 
-Requests: 50 concurrentes
-Exitosos: 50 | Fallidos: 0
-Tiempo total: 2145ms
-Requests/segundo: 23.31
+Requests:        50 concurrent
+Successful:      50 | Failed: 0
+Wall time:       2145ms
+Requests/sec:    23.31
 
-⏱️ Tiempos de respuesta:
-  Min:  45ms
-  Avg:  187ms
-  p50:  156ms
-  p95:  412ms
-  p99:  523ms
-  Max:  567ms
-
-📋 Status codes:
-  200: 50 (100%)
+⏱️  Response times:
+  Min:   45ms
+  Avg:   187ms
+  p50:   156ms
+  p95:   412ms
+  p99:   523ms
+  Max:   567ms
 ```
 
----
+### Response Diffing
 
-### 🔄 Diff Responses — `diff_responses`
-
-Compare two requests side by side. Useful for regression testing or comparing environments (dev vs prod).
+Execute two requests and compare their responses field by field. Ideal for regression testing or comparing environments.
 
 ```
-"Compare GET /api/users on dev vs prod"
-"Diff the response of v1/users vs v2/users"
+diff_responses({
+  request_a: { label: "dev",  method: "GET", url: "http://dev.api.com/users" },
+  request_b: { label: "prod", method: "GET", url: "http://prod.api.com/users" }
+})
 ```
 
----
+### Bulk Testing
 
-### 🚀 Bulk Test — `bulk_test`
-
-Run all saved requests in your collection and get a summary report. Filter by tag.
+Run every saved request in your collection (or filter by tag) and get a pass/fail summary.
 
 ```
-"Run all saved requests tagged 'smoke'"
-"Bulk test my entire collection"
+bulk_test({ tag: "smoke" })
 ```
 
-**Output:**
 ```
 ✅ BULK TEST — 8/8 passed | 1234ms total
 
-✅ health-check — GET /api/health → 200 (45ms)
-✅ list-users — GET /api/users → 200 (123ms)
-✅ create-post — POST /api/blog → 201 (89ms)
-✅ get-post — GET /api/blog/test-post → 200 (67ms)
-...
+✅ health-check — GET /health → 200 (45ms)
+✅ list-users — GET /users → 200 (123ms)
+✅ create-post — POST /blog → 201 (89ms)
+✅ login — POST /auth/login → 200 (156ms)
 ```
 
----
+### cURL Export
 
-### 📤 Export cURL — `export_curl`
-
-Convert any saved request to a cURL command. Ready to copy-paste and share.
+Convert any saved request into a ready-to-use cURL command. Variables from the active environment are resolved automatically.
 
 ```
-"Export the create-user request as cURL"
+export_curl({ name: "create-user" })
 ```
 
-**Output:**
 ```bash
-curl \
-  -X POST \
+curl -X POST \
   'https://api.example.com/users' \
-  -H 'Authorization: Bearer abc123' \
+  -H 'Authorization: Bearer eyJhbGci...' \
   -H 'Content-Type: application/json' \
-  -d '{"name":"John","email":"john@example.com"}'
+  -d '{"name":"Jane","email":"jane@company.com"}'
+```
+
+### Collections & Environments
+
+Save requests for reuse, organize them with tags, and manage variables across environments.
+
+```
+collection_save({ name: "create-user", request: {...}, tags: ["users", "write"] })
+env_create({ name: "prod", variables: { BASE_URL: "https://api.example.com" } })
+env_switch({ name: "prod" })
 ```
 
 ---
 
-### 💾 Collections — `collection_save`, `collection_list`, `collection_get`, `collection_delete`
+## Tool Reference
 
-Save, organize, and reuse requests locally. Tag them for easy filtering.
+20 tools organized in 8 categories:
 
-```
-"Save this request as 'create-user' with tags 'users' and 'write'"
-"Show me all saved requests tagged 'auth'"
-"Delete the old-endpoint request"
-```
-
----
-
-### 🌍 Environments — `env_create`, `env_list`, `env_set`, `env_get`, `env_switch`
-
-Manage variables per environment. Switch between dev/staging/prod seamlessly.
-
-```
-"Create a prod environment with BASE_URL https://api.example.com"
-"Switch to dev environment"
-"Set TOKEN to my-new-token in the current environment"
-```
-
----
-
-## All 20 Tools
-
-| Category | Tool | Description |
-|----------|------|-------------|
-| **Request** | `request` | Execute HTTP requests |
-| **Assert** | `assert` | Request + validate with assertions |
-| **Flow** | `flow_run` | Chain requests, extract variables |
-| **Collections** | `collection_save` | Save a request |
-| | `collection_list` | List saved requests |
-| | `collection_get` | Get request details |
-| | `collection_delete` | Delete a request |
-| **Environments** | `env_create` | Create environment |
-| | `env_list` | List environments |
-| | `env_set` | Set a variable |
-| | `env_get` | Get variable(s) |
-| | `env_switch` | Switch active env |
-| **API Spec** | `api_import` | Import OpenAPI spec |
-| | `api_endpoints` | List endpoints |
-| | `api_endpoint_detail` | Endpoint details |
-| **Mock** | `mock` | Generate fake data |
-| **Load Test** | `load_test` | Concurrent performance test |
-| **Utilities** | `export_curl` | Export as cURL |
-| | `diff_responses` | Compare responses |
-| | `bulk_test` | Run entire collection |
+| Category | Tools | Count |
+|----------|-------|-------|
+| **Requests** | `request` | 1 |
+| **Testing** | `assert` | 1 |
+| **Flows** | `flow_run` | 1 |
+| **Collections** | `collection_save` · `collection_list` · `collection_get` · `collection_delete` | 4 |
+| **Environments** | `env_create` · `env_list` · `env_set` · `env_get` · `env_switch` | 5 |
+| **API Specs** | `api_import` · `api_endpoints` · `api_endpoint_detail` | 3 |
+| **Mock** | `mock` | 1 |
+| **Utilities** | `load_test` · `export_curl` · `diff_responses` · `bulk_test` | 4 |
 
 ---
 
 ## Storage
 
-All data is stored locally as JSON files in `.api-testing/`:
+All data lives in `.api-testing/` as plain JSON files — no database, no cloud sync:
 
 ```
 .api-testing/
-├── active-env
+├── active-env                     # Currently active environment name
 ├── collections/
-│   ├── health-check.json
-│   └── create-user.json
+│   └── create-user.json           # Saved requests
 ├── environments/
-│   ├── dev.json
+│   ├── dev.json                   # { name, variables, timestamps }
 │   └── prod.json
 └── specs/
-    └── my-backend.json
+    └── my-backend.json            # Imported OpenAPI specs
 ```
 
-Configure the storage directory:
+**Custom directory:**
 
 ```json
 {
-  "mcpServers": {
-    "api-testing": {
-      "command": "npx",
-      "args": ["-y", "@cocaxcode/api-testing-mcp"],
-      "env": {
-        "API_TESTING_DIR": "/path/to/your/.api-testing"
-      }
-    }
+  "env": {
+    "API_TESTING_DIR": "/path/to/shared/.api-testing"
   }
 }
 ```
 
-You can version these files in git to share with your team.
+These files are plain JSON — commit them to git to share collections, environments, and API specs across your team.
 
 ---
 
-## Development
+## Contributing
 
 ```bash
 git clone https://github.com/cocaxcode/api-testing-mcp.git
 cd api-testing-mcp
 npm install
-npm test          # 70 tests
-npm run build
-npm run typecheck
+npm test            # 70 tests across 10 suites
+npm run build       # ESM bundle via tsup
+npm run typecheck   # Strict TypeScript
 ```
 
-### Test with MCP Inspector
+**Test with MCP Inspector:**
 
 ```bash
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
+**Stack:** TypeScript · MCP SDK 1.27 · Zod · Vitest · tsup
+
 ---
 
 ## License
 
-MIT — [cocaxcode](https://github.com/cocaxcode)
+[MIT](./LICENSE) — built by [cocaxcode](https://github.com/cocaxcode)

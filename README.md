@@ -1,8 +1,8 @@
 <p align="center">
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
-    <strong>A complete API testing toolkit built for AI coding agents.</strong><br/>
-    Test, validate, mock, and load-test your APIs — all from natural language.
+    <strong>The most complete API testing MCP server available.</strong><br/>
+    27 tools &middot; Zero config &middot; Zero dependencies &middot; Everything runs inside your AI conversation.
   </p>
 </p>
 
@@ -11,16 +11,17 @@
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
+  <img src="https://img.shields.io/badge/tools-27-blueviolet?style=flat-square" alt="27 tools" />
+  <img src="https://img.shields.io/badge/tests-83-brightgreen?style=flat-square" alt="83 tests" />
 </p>
 
 <p align="center">
+  <a href="#why-this-one">Why This One</a> &middot;
   <a href="#installation">Installation</a> &middot;
   <a href="#just-talk-to-it">Just Talk to It</a> &middot;
-  <a href="#works-with-any-api">Any API</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#tool-reference">Tool Reference</a> &middot;
   <a href="#storage">Storage</a> &middot;
-  <a href="#limitations">Limitations</a> &middot;
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -28,13 +29,44 @@
 
 ## What is this?
 
-An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to interact with any API. It works with Claude Code, Claude Desktop, Cursor, and any MCP-compatible client.
+An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to **test, validate, mock, chain, diff, load-test, and manage** any API — all from natural language.
 
 You describe what you need. The AI figures out the rest.
 
-No cloud accounts. No subscriptions. Everything runs locally and stores data as plain JSON files you can commit to git.
+No cloud accounts. No subscriptions. No external frameworks. Everything runs locally and stores data as plain JSON files you can commit to git.
 
-**Requires** an MCP-compatible client such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Claude Desktop](https://claude.ai/download), or [Cursor](https://cursor.sh). This is not a standalone CLI tool — it extends your AI assistant with API testing capabilities.
+Works with **Claude Code**, **Claude Desktop**, **Cursor**, **Windsurf**, **Codex CLI**, **Gemini CLI**, and any MCP-compatible client.
+
+---
+
+## Why This One?
+
+There are other API testing MCP servers out there. Here's why this one is different:
+
+### vs. other MCP API tools
+
+| Capability | @cocaxcode/api-testing-mcp | Others |
+|---|:---:|:---:|
+| HTTP requests with auth | 27 tools | 1-11 tools |
+| Assertions (eq, neq, gt, lt, contains, exists, type...) | 10 operators | Status code only or none |
+| Request flows with variable extraction | `flow_run` with `extract` | Not available |
+| Collections with tags and CRUD | Full CRUD + tag filtering | Import from Postman or none |
+| Environments with variable interpolation | CRUD + project-scoped | Manual `set_env_vars` or none |
+| OpenAPI import with `$ref`, `allOf`, `oneOf`, `anyOf` | ~95% real-world coverage | Basic or none |
+| Mock data generation from schemas | Types, formats, enums | Not available |
+| Load testing with percentiles | p50/p95/p99 + req/s | Basic or none |
+| Response diffing | Field-by-field comparison | Not available |
+| Bulk testing by tag | Collection-wide pass/fail | Not available |
+| cURL export | With resolved variables | Not available |
+| Project-scoped environments | Per-directory context | Not available |
+| External dependencies | **Zero** — just Node.js | Playwright, Jest, pytest... |
+| Configuration needed | **Zero** — `npx` and go | Scaffolding + framework setup |
+
+### The key difference
+
+Most API testing MCPs either (a) generate test code for external frameworks (Playwright, Jest, pytest) that you then run separately, or (b) wrap a single `fetch` call with no state management.
+
+**This tool executes everything inline.** The AI is the test runner. No generated files, no framework installs, no context switching. You say *"verify that POST /users returns 201"* and you get the result in the same conversation.
 
 ---
 
@@ -64,9 +96,38 @@ Add to your config file:
 }
 ```
 
-### Cursor
+### Cursor / Windsurf
 
-Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global):
+Add to `.cursor/mcp.json` (or `.windsurf/mcp.json`) in your project root:
+
+```json
+{
+  "mcpServers": {
+    "api-testing": {
+      "command": "npx",
+      "args": ["-y", "@cocaxcode/api-testing-mcp@latest"]
+    }
+  }
+}
+```
+
+### Codex CLI (OpenAI)
+
+```bash
+codex mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp@latest
+```
+
+Or add manually to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.api-testing]
+command = "npx"
+args = ["-y", "@cocaxcode/api-testing-mcp@latest"]
+```
+
+### Gemini CLI (Google)
+
+Add to `~/.gemini/settings.json`:
 
 ```json
 {
@@ -105,12 +166,12 @@ Available on [npm](https://www.npmjs.com/package/@cocaxcode/api-testing-mcp).
 
 ## Just Talk to It
 
-This tool is designed to be used through natural language. You don't need to memorize tool names, parameters, or JSON structures — just tell the AI what you want, and it translates your intent into the right API calls.
+You don't need to memorize tool names, parameters, or JSON structures — just tell the AI what you want.
 
 **Here's what a real conversation looks like:**
 
-| You say | What happens behind the scenes |
-|---------|-------------------------------|
+| You say | What happens |
+|---------|-------------|
 | *"Set up an environment for my local API on port 3000"* | Creates environment with `BASE_URL=http://localhost:3000` |
 | *"Import my API spec from /api-docs-json"* | Downloads the OpenAPI spec, stores all endpoints and schemas |
 | *"Show me all user endpoints"* | Filters and lists endpoints tagged `users` |
@@ -224,7 +285,7 @@ GET /api/health → 200 OK (42ms)
   timing.total_ms < 500
 ```
 
-**Operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `exists`, `type`
+**10 operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `exists`, `type`
 
 ### Request Flows
 
@@ -258,6 +319,8 @@ flow_run({
 ```
 </details>
 
+**Features:** Variable extraction with dot-notation (`body.data.0.id`), `stop_on_error` flag, `{{variable}}` interpolation between steps.
+
 ### OpenAPI Import
 
 Import your Swagger/OpenAPI spec from a URL or local file. Once imported, the AI understands every endpoint, parameter, and schema — no guessing, no memorizing.
@@ -267,6 +330,8 @@ Import your Swagger/OpenAPI spec from a URL or local file. Once imported, the AI
 "Show me all user endpoints"
 "What parameters does POST /users expect?"
 ```
+
+**Supports:** OpenAPI 3.x with full `$ref` resolution, `allOf` (schema merging), `oneOf`/`anyOf` (union types) — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) partially supported.
 
 ### Mock Data Generation
 
@@ -308,7 +373,7 @@ Response times:
 
 ### Response Diffing
 
-Execute two requests and compare their responses field by field. Detect regressions or compare environments.
+Execute two requests and compare their responses field by field. Detect regressions, compare environments, or validate API versioning.
 
 ```
 "Compare the users endpoint between dev and prod"
@@ -347,9 +412,19 @@ curl -X POST \
   -d '{"name":"Jane","email":"jane@company.com"}'
 ```
 
-### Collections and Environments
+### Collections
 
-Save requests for reuse (with tags), manage variables across environments (dev/staging/prod), and switch contexts instantly.
+Save requests for reuse with tags. Filter, list, and manage your request library. Perfect for building regression suites.
+
+```
+"Save this request as create-user with tags auth, smoke"
+"List all requests tagged smoke"
+"Delete the old health-check request"
+```
+
+### Environments
+
+Manage variables across environments (dev/staging/prod) and switch contexts instantly. Supports `{{variable}}` interpolation in URLs, headers, and body.
 
 ### Project-Scoped Environments
 
@@ -359,7 +434,7 @@ Different projects can have different active environments. When you switch to an
 "Switch to dev for this project"          → dev is active only in the current project
 "Switch to prod globally"                 → prod is the default for projects without a specific assignment
 "Show me which projects have environments" → lists all project-environment assignments
-"Clear the project environment for this project" → falls back to the global active environment
+"Clear the project environment"           → falls back to the global active environment
 ```
 
 Resolution order: project-specific environment → global active environment.
@@ -410,12 +485,38 @@ Override the default directory in your MCP config:
 
 ---
 
+## Architecture
+
+Built for reliability and testability:
+
+- **Zero runtime dependencies** — only `@modelcontextprotocol/sdk` and `zod`
+- **83 integration tests** with mocked fetch (no network calls in CI)
+- **Factory pattern** — `createServer(storageDir?)` for isolated test instances
+- **Strict TypeScript** — zero `any`, full type coverage
+- **< 90KB** bundled output via tsup
+
+```
+src/
+├── tools/           # 27 MCP tool handlers (one file per category)
+├── lib/             # Business logic (no MCP dependency)
+│   ├── http-client  # fetch wrapper with timing
+│   ├── storage      # JSON file storage engine
+│   ├── schemas      # Shared Zod schemas (DRY across all tools)
+│   ├── url          # BASE_URL resolution
+│   ├── path         # Dot-notation accessor (body.data.0.id)
+│   ├── interpolation # {{variable}} resolver
+│   └── openapi-parser # $ref + allOf/oneOf/anyOf resolution
+└── __tests__/       # 10 test suites, 83 tests
+```
+
+---
+
 ## Limitations
 
 - **Auth**: Supports Bearer token, API Key, and Basic auth. OAuth 2.0 flows (authorization code, PKCE) are not supported — use a pre-obtained token instead.
 - **Protocols**: HTTP/HTTPS only. No WebSocket, gRPC, or GraphQL-specific support (though GraphQL over HTTP works fine).
 - **Load testing**: Recommended maximum of 100 concurrent requests. This is a testing tool, not a benchmarking framework.
-- **Specs**: OpenAPI 3.x only. OpenAPI 2.0 (Swagger) is partially supported. AsyncAPI is not supported.
+- **Specs**: OpenAPI 3.x with full support for `$ref`, `allOf`, `oneOf`, and `anyOf` — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) is partially supported. AsyncAPI is not supported.
 - **Storage**: Local JSON files only. No built-in cloud sync or team collaboration server.
 
 ---

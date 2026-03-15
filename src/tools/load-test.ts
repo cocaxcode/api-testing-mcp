@@ -3,6 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
+import { resolveUrl } from '../lib/url.js'
+import { AuthSchema } from '../lib/schemas.js'
 import type { RequestConfig } from '../lib/types.js'
 
 export function registerLoadTestTool(server: McpServer, storage: Storage): void {
@@ -17,17 +19,7 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
       headers: z.record(z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request'),
       query: z.record(z.string()).optional().describe('Query parameters'),
-      auth: z
-        .object({
-          type: z.enum(['bearer', 'api-key', 'basic']),
-          token: z.string().optional(),
-          key: z.string().optional(),
-          header: z.string().optional(),
-          username: z.string().optional(),
-          password: z.string().optional(),
-        })
-        .optional()
-        .describe('Autenticación'),
+      auth: AuthSchema.optional().describe('Autenticación'),
       concurrent: z
         .number()
         .describe('Número de requests concurrentes a lanzar (max: 100)'),
@@ -40,13 +32,7 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
       try {
         const concurrentCount = Math.min(Math.max(params.concurrent, 1), 100)
         const variables = await storage.getActiveVariables()
-
-        // Resolve URL
-        let resolvedUrl = params.url
-        if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-          const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-          resolvedUrl = `${baseUrl}${resolvedUrl}`
-        }
+        const resolvedUrl = resolveUrl(params.url, variables)
 
         const baseConfig: RequestConfig = {
           method: params.method,
@@ -60,7 +46,6 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
 
         const interpolated = interpolateRequest(baseConfig, variables)
 
-        // Execute all requests concurrently
         const startTotal = performance.now()
 
         const promises = Array.from({ length: concurrentCount }, () =>
@@ -81,7 +66,6 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
         const endTotal = performance.now()
         const wallTime = Math.round((endTotal - startTotal) * 100) / 100
 
-        // Calculate stats
         const successful = results.filter((r) => !r.error)
         const failed = results.filter((r) => r.error)
         const timings = successful.map((r) => r.timing).sort((a, b) => a - b)
@@ -145,7 +129,7 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
 
         return {
           content: [{ type: 'text' as const, text: lines.join('\n') }],
-          isError: failed.length > successful.length, // More than 50% failed
+          isError: failed.length > successful.length,
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

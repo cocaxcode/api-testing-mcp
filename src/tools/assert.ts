@@ -3,6 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
+import { resolveUrl } from '../lib/url.js'
+import { getByPath } from '../lib/path.js'
+import { AuthSchema } from '../lib/schemas.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
 
 const AssertionSchema = z.object({
@@ -18,26 +21,6 @@ const AssertionSchema = z.object({
     ),
   expected: z.any().optional().describe('Valor esperado (no necesario para "exists")'),
 })
-
-/**
- * Accede a un valor en un objeto usando dot notation.
- * Ej: getByPath({ body: { data: { id: 1 } } }, "body.data.id") → 1
- */
-function getByPath(obj: unknown, path: string): unknown {
-  const parts = path.split('.')
-  let current: unknown = obj
-
-  for (const part of parts) {
-    if (current === null || current === undefined) return undefined
-    if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[part]
-    } else {
-      return undefined
-    }
-  }
-
-  return current
-}
 
 /**
  * Evalúa una aserción contra una respuesta.
@@ -152,17 +135,7 @@ export function registerAssertTool(server: McpServer, storage: Storage): void {
       headers: z.record(z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request (JSON)'),
       query: z.record(z.string()).optional().describe('Query parameters'),
-      auth: z
-        .object({
-          type: z.enum(['bearer', 'api-key', 'basic']),
-          token: z.string().optional(),
-          key: z.string().optional(),
-          header: z.string().optional(),
-          username: z.string().optional(),
-          password: z.string().optional(),
-        })
-        .optional()
-        .describe('Autenticación'),
+      auth: AuthSchema.optional().describe('Autenticación'),
       assertions: z
         .array(AssertionSchema)
         .describe('Lista de assertions a validar contra la respuesta'),
@@ -170,13 +143,7 @@ export function registerAssertTool(server: McpServer, storage: Storage): void {
     async (params) => {
       try {
         const variables = await storage.getActiveVariables()
-
-        // Auto-prepend BASE_URL for relative URLs
-        let resolvedUrl = params.url
-        if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-          const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-          resolvedUrl = `${baseUrl}${resolvedUrl}`
-        }
+        const resolvedUrl = resolveUrl(params.url, variables)
 
         const config: RequestConfig = {
           method: params.method,

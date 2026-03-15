@@ -49,6 +49,42 @@ function resolveSchema(
 
   const result: ApiSpecSchema = { ...schema }
 
+  // Resolve allOf — merge all schemas into one
+  const rawAllOf = (schema as Record<string, unknown>).allOf as ApiSpecSchema[] | undefined
+  if (rawAllOf && Array.isArray(rawAllOf)) {
+    const merged: ApiSpecSchema = { type: 'object' }
+    const mergedProps: Record<string, ApiSpecSchema> = {}
+    const mergedRequired: string[] = []
+
+    for (const sub of rawAllOf) {
+      const resolved = resolveSchema(sub, root, depth + 1)
+      if (resolved?.properties) {
+        Object.assign(mergedProps, resolved.properties)
+      }
+      if (resolved?.required) {
+        mergedRequired.push(...resolved.required)
+      }
+      if (resolved?.description && !merged.description) {
+        merged.description = resolved.description
+      }
+    }
+
+    merged.properties = { ...(result.properties ?? {}), ...mergedProps }
+    if (mergedRequired.length > 0) {
+      merged.required = [...new Set([...(result.required ?? []), ...mergedRequired])]
+    }
+
+    return merged
+  }
+
+  // Resolve oneOf/anyOf — pick the first schema as representative
+  const rawOneOf = (schema as Record<string, unknown>).oneOf as ApiSpecSchema[] | undefined
+  const rawAnyOf = (schema as Record<string, unknown>).anyOf as ApiSpecSchema[] | undefined
+  const unionSchemas = rawOneOf ?? rawAnyOf
+  if (unionSchemas && Array.isArray(unionSchemas) && unionSchemas.length > 0) {
+    return resolveSchema(unionSchemas[0], root, depth + 1)
+  }
+
   // Resolve properties recursively
   if (result.properties) {
     const resolvedProps: Record<string, ApiSpecSchema> = {}

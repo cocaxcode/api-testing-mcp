@@ -30,10 +30,13 @@ src/
 │   └── utilities.ts  # export_curl, diff_responses, bulk_test (3)
 ├── lib/              # Business logic (no MCP dependency)
 │   ├── types.ts      # Shared TypeScript interfaces
+│   ├── schemas.ts    # Shared Zod schemas (AuthSchema, HttpMethodSchema)
+│   ├── url.ts        # resolveUrl() — BASE_URL auto-prepend
+│   ├── path.ts       # getByPath() — dot notation accessor
 │   ├── http-client.ts # fetch wrapper with timing
 │   ├── storage.ts    # JSON file storage in .api-testing/
 │   ├── interpolation.ts # {{variable}} resolver
-│   └── openapi-parser.ts # OpenAPI spec parser with $ref resolution
+│   └── openapi-parser.ts # OpenAPI spec parser with $ref + allOf/oneOf/anyOf
 └── __tests__/
     ├── helpers.ts    # createTestClient() with InMemoryTransport
     └── *.test.ts     # 10 test files, 83 tests

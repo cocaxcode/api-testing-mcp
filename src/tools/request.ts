@@ -3,16 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
+import { resolveUrl } from '../lib/url.js'
+import { AuthSchemaShape } from '../lib/schemas.js'
 import type { RequestConfig } from '../lib/types.js'
-
-const AuthSchema = {
-  type: z.enum(['bearer', 'api-key', 'basic']).describe('Tipo de autenticación'),
-  token: z.string().optional().describe('Token para Bearer auth'),
-  key: z.string().optional().describe('API key value'),
-  header: z.string().optional().describe('Header name para API key (default: X-API-Key)'),
-  username: z.string().optional().describe('Username para Basic auth'),
-  password: z.string().optional().describe('Password para Basic auth'),
-}
 
 export function registerRequestTool(server: McpServer, storage: Storage): void {
   server.tool(
@@ -38,24 +31,15 @@ export function registerRequestTool(server: McpServer, storage: Storage): void {
         .describe('Query parameters como key-value pairs'),
       timeout: z.number().optional().describe('Timeout en milisegundos (default: 30000)'),
       auth: z
-        .object(AuthSchema)
+        .object(AuthSchemaShape)
         .optional()
         .describe('Configuración de autenticación'),
     },
     async (params) => {
       try {
-        // Cargar variables del entorno activo
         const variables = await storage.getActiveVariables()
+        const resolvedUrl = resolveUrl(params.url, variables)
 
-        // Auto-prepend BASE_URL para URLs relativas (empiezan con /)
-        let resolvedUrl = params.url
-        if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-          // Quitar trailing slash de BASE_URL para evitar doble slash
-          const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-          resolvedUrl = `${baseUrl}${resolvedUrl}`
-        }
-
-        // Construir RequestConfig
         const config: RequestConfig = {
           method: params.method,
           url: resolvedUrl,
@@ -66,10 +50,7 @@ export function registerRequestTool(server: McpServer, storage: Storage): void {
           auth: params.auth,
         }
 
-        // Interpolar variables
         const interpolated = interpolateRequest(config, variables)
-
-        // Ejecutar request
         const response = await executeRequest(interpolated)
 
         return {

@@ -3,6 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
+import { resolveUrl } from '../lib/url.js'
+import { AuthSchema } from '../lib/schemas.js'
 import type { RequestConfig } from '../lib/types.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
@@ -38,14 +40,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
         if (resolveVars) {
           const variables = await storage.getActiveVariables()
-
-          // Auto-prepend BASE_URL for relative URLs
-          let resolvedUrl = config.url
-          if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-            const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-            resolvedUrl = `${baseUrl}${resolvedUrl}`
-          }
-
+          const resolvedUrl = resolveUrl(config.url, variables)
           config = { ...config, url: resolvedUrl }
           config = interpolateRequest(config, variables)
         }
@@ -53,12 +48,10 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         // Build cURL command
         const parts: string[] = ['curl']
 
-        // Method
         if (config.method !== 'GET') {
           parts.push(`-X ${config.method}`)
         }
 
-        // URL with query params
         let url = config.url
         if (config.query && Object.keys(config.query).length > 0) {
           const queryStr = Object.entries(config.query)
@@ -68,14 +61,12 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         }
         parts.push(`'${url}'`)
 
-        // Headers
         if (config.headers) {
           for (const [key, value] of Object.entries(config.headers)) {
             parts.push(`-H '${key}: ${value}'`)
           }
         }
 
-        // Auth headers
         if (config.auth) {
           switch (config.auth.type) {
             case 'bearer':
@@ -97,7 +88,6 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
           }
         }
 
-        // Body
         if (config.body !== undefined && config.body !== null) {
           const bodyStr =
             typeof config.body === 'string' ? config.body : JSON.stringify(config.body)
@@ -127,62 +117,29 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   // ── diff_responses ──
 
+  const DiffRequestSchema = z.object({
+    label: z.string().optional().describe('Etiqueta (ej: "antes", "dev", "v1")'),
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']),
+    url: z.string(),
+    headers: z.record(z.string()).optional(),
+    body: z.any().optional(),
+    query: z.record(z.string()).optional(),
+    auth: AuthSchema.optional(),
+  })
+
   server.tool(
     'diff_responses',
     'Ejecuta dos requests y compara sus respuestas. Útil para detectar regresiones o comparar entornos.',
     {
-      request_a: z
-        .object({
-          label: z.string().optional().describe('Etiqueta (ej: "antes", "dev", "v1")'),
-          method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']),
-          url: z.string(),
-          headers: z.record(z.string()).optional(),
-          body: z.any().optional(),
-          query: z.record(z.string()).optional(),
-          auth: z
-            .object({
-              type: z.enum(['bearer', 'api-key', 'basic']),
-              token: z.string().optional(),
-              key: z.string().optional(),
-              header: z.string().optional(),
-              username: z.string().optional(),
-              password: z.string().optional(),
-            })
-            .optional(),
-        })
-        .describe('Primer request'),
-      request_b: z
-        .object({
-          label: z.string().optional().describe('Etiqueta (ej: "después", "prod", "v2")'),
-          method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']),
-          url: z.string(),
-          headers: z.record(z.string()).optional(),
-          body: z.any().optional(),
-          query: z.record(z.string()).optional(),
-          auth: z
-            .object({
-              type: z.enum(['bearer', 'api-key', 'basic']),
-              token: z.string().optional(),
-              key: z.string().optional(),
-              header: z.string().optional(),
-              username: z.string().optional(),
-              password: z.string().optional(),
-            })
-            .optional(),
-        })
-        .describe('Segundo request'),
+      request_a: DiffRequestSchema.describe('Primer request'),
+      request_b: DiffRequestSchema.describe('Segundo request'),
     },
     async (params) => {
       try {
         const variables = await storage.getActiveVariables()
 
-        // Helper to resolve and execute a request
-        const executeOne = async (req: typeof params.request_a) => {
-          let resolvedUrl = req.url
-          if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-            const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-            resolvedUrl = `${baseUrl}${resolvedUrl}`
-          }
+        const executeOne = async (req: z.infer<typeof DiffRequestSchema>) => {
+          const resolvedUrl = resolveUrl(req.url, variables)
 
           const config: RequestConfig = {
             method: req.method,
@@ -206,14 +163,12 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
         const diffs: string[] = []
 
-        // Compare status
         if (responseA.status !== responseB.status) {
           diffs.push(
             `Status: ${labelA}=${responseA.status} vs ${labelB}=${responseB.status}`,
           )
         }
 
-        // Compare timing
         const timingDiff = Math.abs(responseA.timing.total_ms - responseB.timing.total_ms)
         if (timingDiff > 100) {
           diffs.push(
@@ -221,14 +176,12 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
           )
         }
 
-        // Compare body
         const bodyA = JSON.stringify(responseA.body, null, 2)
         const bodyB = JSON.stringify(responseB.body, null, 2)
 
         if (bodyA !== bodyB) {
           diffs.push('Body: diferente')
 
-          // Find specific key differences for objects
           if (
             typeof responseA.body === 'object' &&
             typeof responseB.body === 'object' &&
@@ -261,7 +214,6 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
           }
         }
 
-        // Compare size
         const sizeDiff = Math.abs(responseA.size_bytes - responseB.size_bytes)
         if (sizeDiff > 0) {
           diffs.push(
@@ -344,14 +296,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
           try {
             let config = saved.request
-
-            // Auto-prepend BASE_URL
-            let resolvedUrl = config.url
-            if (resolvedUrl.startsWith('/') && variables.BASE_URL) {
-              const baseUrl = variables.BASE_URL.replace(/\/+$/, '')
-              resolvedUrl = `${baseUrl}${resolvedUrl}`
-            }
-
+            const resolvedUrl = resolveUrl(config.url, variables)
             config = { ...config, url: resolvedUrl }
             const interpolated = interpolateRequest(config, variables)
             const response = await executeRequest(interpolated)

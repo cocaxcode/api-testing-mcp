@@ -3,6 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
+import { resolveUrl } from '../lib/url.js'
+import { getByPath } from '../lib/path.js'
+import { AuthSchema } from '../lib/schemas.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
 
 const FlowStepSchema = z.object({
@@ -14,17 +17,7 @@ const FlowStepSchema = z.object({
   headers: z.record(z.string()).optional().describe('Headers HTTP'),
   body: z.any().optional().describe('Body del request'),
   query: z.record(z.string()).optional().describe('Query parameters'),
-  auth: z
-    .object({
-      type: z.enum(['bearer', 'api-key', 'basic']),
-      token: z.string().optional(),
-      key: z.string().optional(),
-      header: z.string().optional(),
-      username: z.string().optional(),
-      password: z.string().optional(),
-    })
-    .optional()
-    .describe('Autenticación'),
+  auth: AuthSchema.optional().describe('Autenticación'),
   extract: z
     .record(z.string())
     .optional()
@@ -32,30 +25,6 @@ const FlowStepSchema = z.object({
       'Variables a extraer de la respuesta para pasos siguientes. Key = nombre variable, value = path (ej: { "TOKEN": "body.token", "USER_ID": "body.data.id" })',
     ),
 })
-
-/**
- * Accede a un valor en un objeto usando dot notation.
- */
-function getByPath(obj: unknown, path: string): unknown {
-  const parts = path.split('.')
-  let current: unknown = obj
-
-  for (const part of parts) {
-    if (current === null || current === undefined) return undefined
-    if (typeof current === 'object') {
-      // Handle array index access like "data.0.id"
-      if (Array.isArray(current) && /^\d+$/.test(part)) {
-        current = current[parseInt(part)]
-      } else {
-        current = (current as Record<string, unknown>)[part]
-      }
-    } else {
-      return undefined
-    }
-  }
-
-  return current
-}
 
 export function registerFlowTool(server: McpServer, storage: Storage): void {
   server.tool(
@@ -83,12 +52,7 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
 
         for (const step of params.steps) {
           try {
-            // Auto-prepend BASE_URL for relative URLs
-            let resolvedUrl = step.url
-            if (resolvedUrl.startsWith('/') && flowVariables.BASE_URL) {
-              const baseUrl = flowVariables.BASE_URL.replace(/\/+$/, '')
-              resolvedUrl = `${baseUrl}${resolvedUrl}`
-            }
+            const resolvedUrl = resolveUrl(step.url, flowVariables)
 
             const config: RequestConfig = {
               method: step.method,
@@ -99,7 +63,6 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
               auth: step.auth,
             }
 
-            // Interpolate with accumulated flow variables
             const interpolated = interpolateRequest(config, flowVariables)
             const response: RequestResponse = await executeRequest(interpolated)
 

@@ -1,15 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createTestClient, type TestContext } from './helpers.js'
+import { installMockFetch, restoreFetch } from './mock-fetch.js'
 
 describe('flow_run tool', () => {
   let ctx: TestContext
 
   beforeAll(async () => {
+    installMockFetch()
     ctx = await createTestClient()
   })
 
   afterAll(async () => {
     await ctx.cleanup()
+    restoreFetch()
   })
 
   it('ejecuta múltiples pasos en secuencia', async () => {
@@ -95,7 +98,7 @@ describe('flow_run tool', () => {
 
     expect(result.isError).toBe(true)
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
-    expect(text).toContain('2/3') // Solo se ejecutaron 2 de 3
+    expect(text).toContain('2/3')
     expect(text).not.toContain('paso-nunca-ejecutado')
   })
 })

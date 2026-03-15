@@ -1,15 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createTestClient, type TestContext } from './helpers.js'
+import { installMockFetch, restoreFetch } from './mock-fetch.js'
 
 describe('assert tool', () => {
   let ctx: TestContext
 
   beforeAll(async () => {
+    installMockFetch()
     ctx = await createTestClient()
   })
 
   afterAll(async () => {
     await ctx.cleanup()
+    restoreFetch()
   })
 
   it('valida assertions que pasan correctamente', async () => {
@@ -43,7 +46,7 @@ describe('assert tool', () => {
         url: 'https://httpbin.org/get',
         assertions: [
           { path: 'status', operator: 'eq', expected: 200 },
-          { path: 'status', operator: 'eq', expected: 404 }, // This should fail
+          { path: 'status', operator: 'eq', expected: 404 },
         ],
       },
     })

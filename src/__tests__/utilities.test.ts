@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createTestClient, type TestContext } from './helpers.js'
+import { installMockFetch, restoreFetch } from './mock-fetch.js'
 
 describe('utility tools', () => {
   let ctx: TestContext
 
   beforeAll(async () => {
+    installMockFetch()
     ctx = await createTestClient()
 
     // Save a collection item for export_curl and bulk_test
@@ -33,6 +35,7 @@ describe('utility tools', () => {
 
   afterAll(async () => {
     await ctx.cleanup()
+    restoreFetch()
   })
 
   // ── export_curl ──

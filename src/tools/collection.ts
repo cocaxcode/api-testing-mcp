@@ -1,16 +1,8 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
+import { AuthSchemaShape } from '../lib/schemas.js'
 import type { SavedRequest } from '../lib/types.js'
-
-const AuthSchema = {
-  type: z.enum(['bearer', 'api-key', 'basic']).describe('Tipo de autenticación'),
-  token: z.string().optional().describe('Token para Bearer auth'),
-  key: z.string().optional().describe('API key value'),
-  header: z.string().optional().describe('Header name para API key (default: X-API-Key)'),
-  username: z.string().optional().describe('Username para Basic auth'),
-  password: z.string().optional().describe('Password para Basic auth'),
-}
 
 export function registerCollectionTools(server: McpServer, storage: Storage): void {
   // ── collection_save ──
@@ -26,7 +18,7 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
           headers: z.record(z.string()).optional(),
           body: z.any().optional(),
           query: z.record(z.string()).optional(),
-          auth: z.object(AuthSchema).optional(),
+          auth: z.object(AuthSchemaShape).optional(),
         })
         .describe('Configuración del request a guardar'),
       tags: z

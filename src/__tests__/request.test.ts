@@ -1,15 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createTestClient, type TestContext } from './helpers.js'
+import { installMockFetch, restoreFetch } from './mock-fetch.js'
 
 describe('request tool', () => {
   let ctx: TestContext
 
   beforeAll(async () => {
+    installMockFetch()
     ctx = await createTestClient()
   })
 
   afterAll(async () => {
     await ctx.cleanup()
+    restoreFetch()
   })
 
   it('ejecuta GET a un endpoint público y retorna respuesta válida', async () => {
@@ -24,7 +27,6 @@ describe('request tool', () => {
     expect(result.isError).toBeFalsy()
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     const response = JSON.parse(text)
-    // httpbin puede retornar 502 temporalmente, validamos estructura
     expect(response.status).toBeTypeOf('number')
     expect(response.statusText).toBeTypeOf('string')
     expect(response.timing.total_ms).toBeGreaterThan(0)
@@ -75,7 +77,6 @@ describe('request tool', () => {
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     const response = JSON.parse(text)
     expect(response.status).toBe(200)
-    // httpbin devuelve el body enviado en response.body.json
     expect(response.body.json.name).toBe('test')
   })
 
@@ -103,12 +104,10 @@ describe('request tool', () => {
 
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     const response = JSON.parse(text)
-    // httpbin devuelve los headers enviados en response.body.headers
     expect(response.body.headers.Authorization).toBe('Bearer mytoken123')
   })
 
   it('pipeline completo: env_create → env_set → request con {{variable}}', async () => {
-    // Crear entorno con BASE_URL
     await ctx.client.callTool({
       name: 'env_create',
       arguments: {
@@ -117,13 +116,11 @@ describe('request tool', () => {
       },
     })
 
-    // Activar entorno
     await ctx.client.callTool({
       name: 'env_switch',
       arguments: { name: 'test-env' },
     })
 
-    // Request usando {{BASE_URL}}
     const result = await ctx.client.callTool({
       name: 'request',
       arguments: {
@@ -136,12 +133,10 @@ describe('request tool', () => {
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     const response = JSON.parse(text)
     expect(response.status).toBe(200)
-    // Verificar que la URL se resolvió correctamente
     expect(response.body.url).toBe('https://httpbin.org/get')
   })
 
   it('URL relativa con / usa BASE_URL del entorno activo automáticamente', async () => {
-    // Crear y activar entorno con BASE_URL
     await ctx.client.callTool({
       name: 'env_create',
       arguments: {
@@ -154,7 +149,6 @@ describe('request tool', () => {
       arguments: { name: 'relative-url-env' },
     })
 
-    // Request con URL relativa — debe auto-prepend BASE_URL
     const result = await ctx.client.callTool({
       name: 'request',
       arguments: {
@@ -171,7 +165,6 @@ describe('request tool', () => {
   })
 
   it('URL relativa sin BASE_URL configurada retorna error', async () => {
-    // Crear entorno SIN BASE_URL
     await ctx.client.callTool({
       name: 'env_create',
       arguments: {
@@ -184,7 +177,6 @@ describe('request tool', () => {
       arguments: { name: 'no-base-env' },
     })
 
-    // Request con URL relativa — no hay BASE_URL, debe fallar
     const result = await ctx.client.callTool({
       name: 'request',
       arguments: {

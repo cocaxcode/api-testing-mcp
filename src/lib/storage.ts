@@ -43,23 +43,23 @@ export class Storage {
   async listCollections(tag?: string): Promise<CollectionListItem[]> {
     await this.ensureDir('collections')
     const files = await this.listJsonFiles(this.collectionsDir)
-    const items: CollectionListItem[] = []
 
-    for (const file of files) {
-      const saved = await this.readJson<SavedRequest>(join(this.collectionsDir, file))
-      if (!saved) continue
+    const allSaved = await Promise.all(
+      files.map((file) => this.readJson<SavedRequest>(join(this.collectionsDir, file))),
+    )
 
-      if (tag && !(saved.tags ?? []).includes(tag)) continue
-
-      items.push({
+    return allSaved
+      .filter((saved): saved is SavedRequest => {
+        if (!saved) return false
+        if (tag && !(saved.tags ?? []).includes(tag)) return false
+        return true
+      })
+      .map((saved) => ({
         name: saved.name,
         method: saved.request.method,
         url: saved.request.url,
         tags: saved.tags ?? [],
-      })
-    }
-
-    return items
+      }))
   }
 
   async deleteCollection(name: string): Promise<boolean> {
@@ -89,21 +89,19 @@ export class Storage {
     await this.ensureDir('environments')
     const files = await this.listJsonFiles(this.environmentsDir)
     const activeEnv = await this.getActiveEnvironment()
-    const items: EnvironmentListItem[] = []
 
-    for (const file of files) {
-      const env = await this.readJson<Environment>(join(this.environmentsDir, file))
-      if (!env) continue
+    const allEnvs = await Promise.all(
+      files.map((file) => this.readJson<Environment>(join(this.environmentsDir, file))),
+    )
 
-      items.push({
+    return allEnvs
+      .filter((env): env is Environment => env !== null)
+      .map((env) => ({
         name: env.name,
         active: env.name === activeEnv,
         variableCount: Object.keys(env.variables).length,
         spec: env.spec,
-      })
-    }
-
-    return items
+      }))
   }
 
   async updateEnvironment(name: string, variables: Record<string, string>): Promise<void> {
@@ -298,21 +296,19 @@ export class Storage {
   async listSpecs(): Promise<ApiSpecListItem[]> {
     await this.ensureDir('specs')
     const files = await this.listJsonFiles(this.specsDir)
-    const items: ApiSpecListItem[] = []
 
-    for (const file of files) {
-      const spec = await this.readJson<ApiSpec>(join(this.specsDir, file))
-      if (!spec) continue
+    const allSpecs = await Promise.all(
+      files.map((file) => this.readJson<ApiSpec>(join(this.specsDir, file))),
+    )
 
-      items.push({
+    return allSpecs
+      .filter((spec): spec is ApiSpec => spec !== null)
+      .map((spec) => ({
         name: spec.name,
         source: spec.source,
         endpointCount: spec.endpoints.length,
         version: spec.version,
-      })
-    }
-
-    return items
+      }))
   }
 
   async deleteSpec(name: string): Promise<boolean> {
@@ -359,10 +355,16 @@ export class Storage {
    * Reemplaza caracteres no alfanuméricos por guiones.
    */
   private sanitizeName(name: string): string {
-    return name
+    const sanitized = name
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
+
+    if (!sanitized) {
+      throw new Error(`Nombre inválido: '${name}'`)
+    }
+
+    return sanitized
   }
 }

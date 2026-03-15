@@ -4,6 +4,36 @@ import type { Storage } from '../lib/storage.js'
 import { parseOpenApiSpec } from '../lib/openapi-parser.js'
 import { readFile } from 'node:fs/promises'
 
+/**
+ * Resuelve el nombre del spec a usar:
+ * 1. Si se pasa explícitamente, lo usa
+ * 2. Si hay un entorno activo con spec asociado, lo usa
+ * 3. Si solo hay un spec importado, lo usa
+ * 4. Si hay múltiples, pide al usuario que elija
+ */
+async function resolveSpecName(
+  name: string | undefined,
+  storage: Storage,
+): Promise<{ name: string; error?: never } | { name?: never; error: string }> {
+  if (name) return { name }
+
+  // Try active environment spec
+  const activeSpec = await storage.getActiveSpec()
+  if (activeSpec) return { name: activeSpec }
+
+  // Fallback to single spec
+  const specs = await storage.listSpecs()
+  if (specs.length === 0) {
+    return { error: 'No hay specs importados. Usa api_import para importar uno.' }
+  }
+  if (specs.length === 1) {
+    return { name: specs[0].name }
+  }
+  return {
+    error: `Hay ${specs.length} specs importados. Especifica cuál usar: ${specs.map((s) => s.name).join(', ')}`,
+  }
+}
+
 export function registerApiSpecTools(server: McpServer, storage: Storage): void {
   // ── api_import ──
 
@@ -81,6 +111,12 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
         const spec = parseOpenApiSpec(rawDoc, params.name, params.source)
         await storage.saveSpec(spec)
 
+        // Auto-associate with active environment
+        const activeEnv = await storage.getActiveEnvironment()
+        if (activeEnv) {
+          await storage.setEnvironmentSpec(activeEnv, params.name)
+        }
+
         // Build summary
         const tagCounts: Record<string, number> = {}
         for (const ep of spec.endpoints) {
@@ -109,9 +145,49 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
                 'Endpoints por tag:',
                 tagSummary,
                 '',
+                activeEnv ? `Asociado al entorno '${activeEnv}'.` : '',
                 'Usa api_endpoints para ver los endpoints disponibles.',
                 'Usa api_endpoint_detail para ver el detalle de un endpoint específico.',
               ].join('\n'),
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── api_spec_list ──
+
+  server.tool(
+    'api_spec_list',
+    'Lista todos los specs de API importados. Úsalo para descubrir qué APIs están disponibles.',
+    {},
+    async () => {
+      try {
+        const items = await storage.listSpecs()
+
+        if (items.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'No hay specs importados. Usa api_import para importar uno.',
+              },
+            ],
+          }
+        }
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(items, null, 2),
             },
           ],
         }
@@ -129,11 +205,12 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
 
   server.tool(
     'api_endpoints',
-    'Lista los endpoints de un API importada. Filtra por tag, método o path.',
+    'Lista los endpoints de un API importada. Filtra por tag, método o path. Si no se especifica nombre y solo hay un spec importado, lo usa automáticamente.',
     {
       name: z
         .string()
-        .describe('Nombre del API importada'),
+        .optional()
+        .describe('Nombre del API importada. Si se omite y solo hay un spec, lo usa automáticamente'),
       tag: z
         .string()
         .optional()
@@ -149,13 +226,21 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const spec = await storage.getSpec(params.name)
+        const specName = await resolveSpecName(params.name, storage)
+        if (specName.error) {
+          return {
+            content: [{ type: 'text' as const, text: specName.error }],
+            isError: true,
+          }
+        }
+
+        const spec = await storage.getSpec(specName.name)
         if (!spec) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: API '${params.name}' no encontrada. Usa api_import para importarla primero.`,
+                text: `Error: API '${specName.name}' no encontrada. Usa api_import para importarla primero.`,
               },
             ],
             isError: true,
@@ -228,7 +313,8 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     {
       name: z
         .string()
-        .describe('Nombre del API importada'),
+        .optional()
+        .describe('Nombre del API importada. Si se omite y solo hay un spec, lo usa automáticamente'),
       method: z
         .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
         .describe('Método HTTP del endpoint'),
@@ -238,13 +324,21 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const spec = await storage.getSpec(params.name)
+        const specName = await resolveSpecName(params.name, storage)
+        if (specName.error) {
+          return {
+            content: [{ type: 'text' as const, text: specName.error }],
+            isError: true,
+          }
+        }
+
+        const spec = await storage.getSpec(specName.name)
         if (!spec) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: API '${params.name}' no encontrada. Usa api_import para importarla primero.`,
+                text: `Error: API '${specName.name}' no encontrada. Usa api_import para importarla primero.`,
               },
             ],
             isError: true,

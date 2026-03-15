@@ -355,7 +355,7 @@ Save requests for reuse (with tags), manage variables across environments (dev/s
 
 ## Tool Reference
 
-22 tools organized in 8 categories:
+25 tools organized in 8 categories:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -363,8 +363,8 @@ Save requests for reuse (with tags), manage variables across environments (dev/s
 | **Testing** | `assert` | 1 |
 | **Flows** | `flow_run` | 1 |
 | **Collections** | `collection_save` `collection_list` `collection_get` `collection_delete` | 4 |
-| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` | 7 |
-| **API Specs** | `api_import` `api_endpoints` `api_endpoint_detail` | 3 |
+| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` `env_spec` | 8 |
+| **API Specs** | `api_import` `api_spec_list` `api_endpoints` `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
 | **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` | 4 |
 

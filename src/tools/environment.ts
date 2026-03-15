@@ -14,6 +14,10 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .record(z.string())
         .optional()
         .describe('Variables iniciales como key-value'),
+      spec: z
+        .string()
+        .optional()
+        .describe('Nombre del spec API asociado (ej: "cocaxcode-api")'),
     },
     async (params) => {
       try {
@@ -21,6 +25,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         const env: Environment = {
           name: params.name,
           variables: params.variables ?? {},
+          spec: params.spec,
           createdAt: now,
           updatedAt: now,
         }
@@ -28,11 +33,12 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         await storage.createEnvironment(env)
 
         const varCount = Object.keys(env.variables).length
+        const specMsg = params.spec ? ` — spec: '${params.spec}'` : ''
         return {
           content: [
             {
               type: 'text' as const,
-              text: `Entorno '${params.name}' creado con ${varCount} variable(s)`,
+              text: `Entorno '${params.name}' creado con ${varCount} variable(s)${specMsg}`,
             },
           ],
         }
@@ -202,6 +208,55 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
               ),
             },
           ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── env_spec ──
+  server.tool(
+    'env_spec',
+    'Asocia o desasocia un spec API a un entorno. Si no se especifica entorno, usa el activo.',
+    {
+      spec: z
+        .string()
+        .optional()
+        .describe('Nombre del spec a asociar. Si se omite, desasocia el spec actual'),
+      environment: z
+        .string()
+        .optional()
+        .describe('Entorno destino (default: entorno activo)'),
+    },
+    async (params) => {
+      try {
+        const envName = params.environment ?? (await storage.getActiveEnvironment())
+
+        if (!envName) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'No hay entorno activo. Usa env_switch para activar uno.',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        await storage.setEnvironmentSpec(envName, params.spec ?? null)
+
+        const message = params.spec
+          ? `Spec '${params.spec}' asociado al entorno '${envName}'`
+          : `Spec desasociado del entorno '${envName}'`
+
+        return {
+          content: [{ type: 'text' as const, text: message }],
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

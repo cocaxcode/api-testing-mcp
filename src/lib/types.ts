@@ -60,6 +60,8 @@ export interface CollectionListItem {
 export interface Environment {
   name: string
   variables: Record<string, string>
+  /** Nombre del spec API asociado a este entorno */
+  spec?: string
   createdAt: string
   updatedAt: string
 }
@@ -68,6 +70,7 @@ export interface EnvironmentListItem {
   name: string
   active: boolean
   variableCount: number
+  spec?: string
 }
 
 // ── API Spec (OpenAPI) ──

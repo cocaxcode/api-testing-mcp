@@ -97,6 +97,7 @@ export class Storage {
         name: env.name,
         active: env.name === activeEnv,
         variableCount: Object.keys(env.variables).length,
+        spec: env.spec,
       })
     }
 
@@ -134,6 +135,27 @@ export class Storage {
 
     await this.ensureDir('')
     await writeFile(this.activeEnvFile, name, 'utf-8')
+  }
+
+  async setEnvironmentSpec(envName: string, specName: string | null): Promise<void> {
+    const env = await this.getEnvironment(envName)
+    if (!env) {
+      throw new Error(`Entorno '${envName}' no encontrado`)
+    }
+
+    env.spec = specName ?? undefined
+    env.updatedAt = new Date().toISOString()
+
+    const filePath = join(this.environmentsDir, `${this.sanitizeName(envName)}.json`)
+    await this.writeJson(filePath, env)
+  }
+
+  async getActiveSpec(): Promise<string | null> {
+    const activeName = await this.getActiveEnvironment()
+    if (!activeName) return null
+
+    const env = await this.getEnvironment(activeName)
+    return env?.spec ?? null
   }
 
   async renameEnvironment(oldName: string, newName: string): Promise<void> {

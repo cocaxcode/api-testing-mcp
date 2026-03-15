@@ -2,7 +2,7 @@
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
     <strong>The most complete API testing MCP server available.</strong><br/>
-    31 tools &middot; Zero config &middot; Zero dependencies &middot; Everything runs inside your AI conversation.
+    35 tools &middot; Zero config &middot; Zero dependencies &middot; Everything runs inside your AI conversation.
   </p>
 </p>
 
@@ -11,8 +11,8 @@
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
-  <img src="https://img.shields.io/badge/tools-31-blueviolet?style=flat-square" alt="29 tools" />
-  <img src="https://img.shields.io/badge/tests-110-brightgreen?style=flat-square" alt="96 tests" />
+  <img src="https://img.shields.io/badge/tools-35-blueviolet?style=flat-square" alt="35 tools" />
+  <img src="https://img.shields.io/badge/tests-120-brightgreen?style=flat-square" alt="120 tests" />
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 ## What is this?
 
-An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to **test, validate, mock, chain, diff, load-test, import/export Postman collections, and manage** any API — all from natural language.
+An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to **test, validate, mock, chain, diff, load-test, import/export, and manage** any API — all from natural language.
 
 You describe what you need. The AI figures out the rest.
 
@@ -47,7 +47,7 @@ There are other API testing MCP servers out there. Here's why this one is differ
 
 | Capability | @cocaxcode/api-testing-mcp | Others |
 |---|:---:|:---:|
-| HTTP requests with auth | 31 tools | 1-11 tools |
+| HTTP requests with auth | 35 tools | 1-11 tools |
 | Assertions (eq, neq, gt, lt, contains, exists, type...) | 10 operators | Status code only or none |
 | Request flows with variable extraction | `flow_run` with `extract` | Not available |
 | Collections with tags and CRUD | Full CRUD + tag filtering | Basic or none |
@@ -57,6 +57,7 @@ There are other API testing MCP servers out there. Here's why this one is differ
 | Load testing with percentiles | p50/p95/p99 + req/s | Basic or none |
 | Response diffing | Field-by-field comparison | Not available |
 | Bulk testing by tag | Collection-wide pass/fail | Not available |
+| **Native export/import** | **Portable `.atm/` folder — copy & paste between projects** | **Not available** |
 | **Postman import + export** | **Bidirectional: import from & export to Postman** | **Not available** |
 | cURL export | With resolved variables | Not available |
 | Project-scoped environments | Per-directory context | Not available |
@@ -183,10 +184,10 @@ You don't need to memorize tool names, parameters, or JSON structures — just t
 | *"How fast is the health endpoint under load?"* | Fires 50 concurrent requests, reports p50/p95/p99 latencies |
 | *"Run all my saved smoke tests"* | Executes every request tagged `smoke`, reports pass/fail |
 | *"Export the create-user request as curl"* | Builds a ready-to-paste cURL command with resolved variables |
-| *"Import my Postman collection from exported.json"* | Reads a Postman Collection v2.1, converts all requests into saved collection items |
-| *"Import the Postman environment from prod.postman_environment.json"* | Imports variables from a Postman Environment file |
+| *"Export my collection and environment"* | Writes portable files to `.atm/` — ready to share |
+| *"Import the collection from .atm/"* | Auto-detects exported files and imports them |
+| *"Import my Postman collection from exported.json"* | Reads a Postman Collection v2.1, converts all requests |
 | *"Export my collection to Postman"* | Writes a `.postman_collection.json` file ready to import |
-| *"Export the dev environment for Postman"* | Writes a `.postman_environment.json` file ready to import |
 | *"Compare the users endpoint between dev and prod"* | Hits both URLs, diffs status codes, body, and timing |
 | *"Switch to the production environment"* | Changes active env — all subsequent requests use prod URLs and tokens |
 
@@ -401,6 +402,54 @@ BULK TEST — 8/8 passed | 1.2s total
   login        — POST /auth/login  → 200 (156ms)
 ```
 
+### Native Export & Import
+
+Export your collections and environments to a portable `.atm/` folder. Copy it to another project (or share it with your team) and import with zero configuration.
+
+#### Export
+
+```
+"Export my collection"
+"Export the dev environment"
+```
+
+Both commands write to `.atm/` in your project root:
+
+```
+your-project/
+└── .atm/
+    ├── collection.json       ← All saved requests
+    └── dev.env.json          ← Environment variables
+```
+
+`.atm/` is automatically added to `.gitignore` on first export — your credentials stay safe.
+
+#### Import
+
+```
+"Import the collection"
+"Import the environment"
+```
+
+No file path needed. The tools auto-detect files in `.atm/`. If there's no `.atm/` folder, they search the current directory. You can always specify a path manually if needed.
+
+#### Sharing workflow
+
+```
+# Developer A: exports
+"Export my collection and dev environment"
+→ .atm/collection.json + .atm/dev.env.json created
+
+# Developer A shares .atm/ folder (email, Slack, USB, whatever)
+
+# Developer B: copies .atm/ to their project root, then:
+"Import the collection"
+→ All requests imported
+
+"Import the environment and activate it"
+→ Environment ready, variables loaded
+```
+
 ### Postman Import & Export
 
 **Bidirectional Postman support.** Import existing Postman collections and environments, or export yours for use in Postman. Migrate seamlessly between Postman and your AI workflow.
@@ -519,7 +568,7 @@ Resolution order: project-specific environment → global active environment.
 
 ## Tool Reference
 
-31 tools organized in 8 categories:
+35 tools organized in 8 categories:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -530,7 +579,7 @@ Resolution order: project-specific environment → global active environment.
 | **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` `env_spec` `env_project_clear` `env_project_list` | 10 |
 | **API Specs** | `api_import` `api_spec_list` `api_endpoints` `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
-| **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` `import_postman_collection` `import_postman_environment` `export_postman_collection` `export_postman_environment` | 8 |
+| **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` `export_collection` `import_collection` `export_environment` `import_environment` `export_postman_collection` `import_postman_collection` `export_postman_environment` `import_postman_environment` | 12 |
 
 You don't need to call these tools directly. Just describe what you want and the AI picks the right one.
 
@@ -549,7 +598,16 @@ All data lives in `~/.api-testing/` (user home directory) as plain JSON — no d
 └── specs/                         # Imported OpenAPI specs
 ```
 
-Override the default directory in your MCP config:
+Exports go to `.atm/` in your project root (portable folder for sharing):
+
+```
+your-project/
+└── .atm/                          # Auto-added to .gitignore
+    ├── collection.json            # Exported requests
+    └── dev.env.json               # Exported environment
+```
+
+Override the default storage directory in your MCP config:
 
 ```json
 {
@@ -566,14 +624,14 @@ Override the default directory in your MCP config:
 Built for reliability and testability:
 
 - **Zero runtime dependencies** — only `@modelcontextprotocol/sdk` and `zod`
-- **110 integration tests** with mocked fetch (no network calls in CI)
+- **120 integration tests** with mocked fetch (no network calls in CI)
 - **Factory pattern** — `createServer(storageDir?)` for isolated test instances
 - **Strict TypeScript** — zero `any`, full type coverage
-- **< 95KB** bundled output via tsup
+- **< 115KB** bundled output via tsup
 
 ```
 src/
-├── tools/           # 31 MCP tool handlers (one file per category)
+├── tools/           # 35 MCP tool handlers (one file per category)
 ├── lib/             # Business logic (no MCP dependency)
 │   ├── http-client  # fetch wrapper with timing
 │   ├── storage      # JSON file storage engine
@@ -582,7 +640,7 @@ src/
 │   ├── path         # Dot-notation accessor (body.data.0.id)
 │   ├── interpolation # {{variable}} resolver
 │   └── openapi-parser # $ref + allOf/oneOf/anyOf resolution
-└── __tests__/       # 10 test suites, 110 tests
+└── __tests__/       # 10 test suites, 120 tests
 ```
 
 ---
@@ -603,7 +661,7 @@ src/
 git clone https://github.com/cocaxcode/api-testing-mcp.git
 cd api-testing-mcp
 npm install
-npm test            # 110 tests across 10 suites
+npm test            # 120 tests across 10 suites
 npm run build       # ESM bundle via tsup
 npm run typecheck   # Strict TypeScript
 ```

@@ -226,21 +226,22 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const specName = await resolveSpecName(params.name, storage)
-        if (specName.error) {
+        const resolved = await resolveSpecName(params.name, storage)
+        if (resolved.error) {
           return {
-            content: [{ type: 'text' as const, text: specName.error }],
+            content: [{ type: 'text' as const, text: resolved.error }],
             isError: true,
           }
         }
 
-        const spec = await storage.getSpec(specName.name)
+        const resolvedName = resolved.name as string
+        const spec = await storage.getSpec(resolvedName)
         if (!spec) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: API '${specName.name}' no encontrada. Usa api_import para importarla primero.`,
+                text: `Error: API '${resolvedName}' no encontrada. Usa api_import para importarla primero.`,
               },
             ],
             isError: true,
@@ -324,21 +325,22 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const specName = await resolveSpecName(params.name, storage)
-        if (specName.error) {
+        const resolved = await resolveSpecName(params.name, storage)
+        if (resolved.error) {
           return {
-            content: [{ type: 'text' as const, text: specName.error }],
+            content: [{ type: 'text' as const, text: resolved.error }],
             isError: true,
           }
         }
 
-        const spec = await storage.getSpec(specName.name)
+        const resolvedName = resolved.name as string
+        const spec = await storage.getSpec(resolvedName)
         if (!spec) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: API '${specName.name}' no encontrada. Usa api_import para importarla primero.`,
+                text: `Error: API '${resolvedName}' no encontrada. Usa api_import para importarla primero.`,
               },
             ],
             isError: true,

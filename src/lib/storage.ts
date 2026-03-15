@@ -16,6 +16,7 @@ export class Storage {
   private readonly environmentsDir: string
   private readonly specsDir: string
   private readonly activeEnvFile: string
+  private readonly projectEnvsFile: string
 
   constructor(baseDir?: string) {
     this.baseDir = baseDir ?? process.env.API_TESTING_DIR ?? join(homedir(), '.api-testing')
@@ -23,6 +24,7 @@ export class Storage {
     this.environmentsDir = join(this.baseDir, 'environments')
     this.specsDir = join(this.baseDir, 'specs')
     this.activeEnvFile = join(this.baseDir, 'active-env')
+    this.projectEnvsFile = join(this.baseDir, 'project-envs.json')
   }
 
   // ── Collections ──
@@ -117,7 +119,18 @@ export class Storage {
     await this.writeJson(filePath, env)
   }
 
-  async getActiveEnvironment(): Promise<string | null> {
+  async getActiveEnvironment(project?: string): Promise<string | null> {
+    // Primero buscar entorno específico del proyecto
+    const projectPath = project ?? process.cwd()
+    const projectEnvs = await this.getProjectEnvs()
+    const projectEnv = projectEnvs[projectPath]
+    if (projectEnv) {
+      // Verificar que el entorno aún existe
+      const env = await this.getEnvironment(projectEnv)
+      if (env) return projectEnv
+    }
+
+    // Fallback al entorno global
     try {
       const content = await readFile(this.activeEnvFile, 'utf-8')
       return content.trim() || null
@@ -126,15 +139,40 @@ export class Storage {
     }
   }
 
-  async setActiveEnvironment(name: string): Promise<void> {
+  async setActiveEnvironment(name: string, project?: string): Promise<void> {
     // Verificar que el entorno existe
     const env = await this.getEnvironment(name)
     if (!env) {
       throw new Error(`Entorno '${name}' no encontrado`)
     }
 
-    await this.ensureDir('')
-    await writeFile(this.activeEnvFile, name, 'utf-8')
+    if (project) {
+      // Guardar como entorno específico del proyecto
+      const projectEnvs = await this.getProjectEnvs()
+      projectEnvs[project] = name
+      await this.ensureDir('')
+      await this.writeJson(this.projectEnvsFile, projectEnvs)
+    } else {
+      // Guardar como entorno global
+      await this.ensureDir('')
+      await writeFile(this.activeEnvFile, name, 'utf-8')
+    }
+  }
+
+  async clearProjectEnvironment(project: string): Promise<boolean> {
+    const projectEnvs = await this.getProjectEnvs()
+    if (!(project in projectEnvs)) return false
+    delete projectEnvs[project]
+    await this.writeJson(this.projectEnvsFile, projectEnvs)
+    return true
+  }
+
+  async listProjectEnvironments(): Promise<Record<string, string>> {
+    return this.getProjectEnvs()
+  }
+
+  private async getProjectEnvs(): Promise<Record<string, string>> {
+    return (await this.readJson<Record<string, string>>(this.projectEnvsFile)) ?? {}
   }
 
   async setEnvironmentSpec(envName: string, specName: string | null): Promise<void> {
@@ -176,10 +214,27 @@ export class Storage {
     await this.createEnvironment(env)
     await unlink(join(this.environmentsDir, `${this.sanitizeName(oldName)}.json`))
 
-    // Actualizar active-env si era el activo
-    const activeEnv = await this.getActiveEnvironment()
-    if (activeEnv === oldName) {
-      await writeFile(this.activeEnvFile, newName, 'utf-8')
+    // Actualizar active-env global si era el activo
+    try {
+      const globalActive = await readFile(this.activeEnvFile, 'utf-8')
+      if (globalActive.trim() === oldName) {
+        await writeFile(this.activeEnvFile, newName, 'utf-8')
+      }
+    } catch {
+      // No hay active-env global
+    }
+
+    // Actualizar project-envs
+    const projectEnvs = await this.getProjectEnvs()
+    let changed = false
+    for (const [project, envName] of Object.entries(projectEnvs)) {
+      if (envName === oldName) {
+        projectEnvs[project] = newName
+        changed = true
+      }
+    }
+    if (changed) {
+      await this.writeJson(this.projectEnvsFile, projectEnvs)
     }
   }
 
@@ -191,14 +246,27 @@ export class Storage {
 
     await unlink(join(this.environmentsDir, `${this.sanitizeName(name)}.json`))
 
-    // Limpiar active-env si era el activo
-    const activeEnv = await this.getActiveEnvironment()
-    if (activeEnv === name) {
-      try {
+    // Limpiar active-env global si era el activo
+    try {
+      const globalActive = await readFile(this.activeEnvFile, 'utf-8')
+      if (globalActive.trim() === name) {
         await unlink(this.activeEnvFile)
-      } catch {
-        // Ignorar si no existe
       }
+    } catch {
+      // No hay active-env global
+    }
+
+    // Limpiar project-envs
+    const projectEnvs = await this.getProjectEnvs()
+    let changed = false
+    for (const [project, envName] of Object.entries(projectEnvs)) {
+      if (envName === name) {
+        delete projectEnvs[project]
+        changed = true
+      }
+    }
+    if (changed) {
+      await this.writeJson(this.projectEnvsFile, projectEnvs)
     }
   }
 

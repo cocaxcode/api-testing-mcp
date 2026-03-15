@@ -208,4 +208,108 @@ describe('environment tools', () => {
     })
     expect(result.isError).toBe(true)
   })
+
+  // ── Project-scoped environments ──
+
+  it('env_switch con project guarda entorno específico del proyecto', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_switch',
+      arguments: { name: 'dev', project: '/test/project-a' },
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain("'dev'")
+    expect(text).toContain("'/test/project-a'")
+  })
+
+  it('env_project_list muestra proyectos con entornos asignados', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_project_list',
+      arguments: {},
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    const items = JSON.parse(text)
+    expect(items).toHaveLength(1)
+    expect(items[0].project).toBe('/test/project-a')
+    expect(items[0].environment).toBe('dev')
+  })
+
+  it('env_project_clear elimina asociación de proyecto', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_project_clear',
+      arguments: { project: '/test/project-a' },
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('eliminado')
+
+    // Verificar que ya no aparece en la lista
+    const list = await ctx.client.callTool({
+      name: 'env_project_list',
+      arguments: {},
+    })
+    const listText = (list.content as Array<{ type: string; text: string }>)[0].text
+    expect(listText).toContain('No hay entornos específicos')
+  })
+
+  it('env_project_clear en proyecto sin asociación retorna mensaje informativo', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_project_clear',
+      arguments: { project: '/nonexistent/project' },
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('No hay entorno específico')
+  })
+
+  it('env_delete limpia project-envs asociados', async () => {
+    // Crear entorno y asociar a proyecto
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: { name: 'proj-env' },
+    })
+    await ctx.client.callTool({
+      name: 'env_switch',
+      arguments: { name: 'proj-env', project: '/test/project-b' },
+    })
+
+    // Eliminar el entorno
+    await ctx.client.callTool({
+      name: 'env_delete',
+      arguments: { name: 'proj-env' },
+    })
+
+    // Verificar que la asociación se limpió
+    const list = await ctx.client.callTool({
+      name: 'env_project_list',
+      arguments: {},
+    })
+    const text = (list.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('No hay entornos específicos')
+  })
+
+  it('env_rename actualiza project-envs asociados', async () => {
+    // Crear entorno y asociar a proyecto
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: { name: 'old-name' },
+    })
+    await ctx.client.callTool({
+      name: 'env_switch',
+      arguments: { name: 'old-name', project: '/test/project-c' },
+    })
+
+    // Renombrar
+    await ctx.client.callTool({
+      name: 'env_rename',
+      arguments: { name: 'old-name', new_name: 'new-name' },
+    })
+
+    // Verificar que la asociación se actualizó
+    const list = await ctx.client.callTool({
+      name: 'env_project_list',
+      arguments: {},
+    })
+    const text = (list.content as Array<{ type: string; text: string }>)[0].text
+    const items = JSON.parse(text)
+    const item = items.find((i: { project: string }) => i.project === '/test/project-c')
+    expect(item.environment).toBe('new-name')
+  })
 })

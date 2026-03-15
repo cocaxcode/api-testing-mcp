@@ -330,19 +330,111 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
   // ── env_switch ──
   server.tool(
     'env_switch',
-    'Cambia el entorno activo. Las variables del entorno activo se usan en {{interpolación}}.',
+    'Cambia el entorno activo. Si se especifica project, solo aplica a ese directorio de proyecto.',
     {
       name: z.string().describe('Nombre del entorno a activar'),
+      project: z
+        .string()
+        .optional()
+        .describe('Ruta del proyecto (ej: C:/cocaxcode). Si se omite, cambia el entorno global'),
     },
     async (params) => {
       try {
-        await storage.setActiveEnvironment(params.name)
+        await storage.setActiveEnvironment(params.name, params.project)
+
+        const scope = params.project
+          ? ` para proyecto '${params.project}'`
+          : ' (global)'
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Entorno activo cambiado a '${params.name}'${scope}`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── env_project_clear ──
+  server.tool(
+    'env_project_clear',
+    'Elimina la asociación de entorno específico de un proyecto. El proyecto usará el entorno global.',
+    {
+      project: z
+        .string()
+        .describe('Ruta del proyecto del que eliminar la asociación'),
+    },
+    async (params) => {
+      try {
+        const removed = await storage.clearProjectEnvironment(params.project)
+
+        if (!removed) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `No hay entorno específico para el proyecto '${params.project}'`,
+              },
+            ],
+          }
+        }
 
         return {
           content: [
             {
               type: 'text' as const,
-              text: `Entorno activo cambiado a '${params.name}'`,
+              text: `Entorno específico eliminado para proyecto '${params.project}'. Usará el entorno global.`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── env_project_list ──
+  server.tool(
+    'env_project_list',
+    'Lista todos los proyectos con entornos específicos asignados.',
+    {},
+    async () => {
+      try {
+        const projectEnvs = await storage.listProjectEnvironments()
+        const entries = Object.entries(projectEnvs)
+
+        if (entries.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'No hay entornos específicos por proyecto. Todos usan el entorno global.',
+              },
+            ],
+          }
+        }
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(
+                entries.map(([project, env]) => ({ project, environment: env })),
+                null,
+                2,
+              ),
             },
           ],
         }

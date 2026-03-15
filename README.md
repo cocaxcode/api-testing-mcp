@@ -351,11 +351,24 @@ curl -X POST \
 
 Save requests for reuse (with tags), manage variables across environments (dev/staging/prod), and switch contexts instantly.
 
+### Project-Scoped Environments
+
+Different projects can have different active environments. When you switch to an environment for a specific project, it only affects that project — other projects keep their own active environment.
+
+```
+"Switch to dev for this project"          → dev is active only in the current project
+"Switch to prod globally"                 → prod is the default for projects without a specific assignment
+"Show me which projects have environments" → lists all project-environment assignments
+"Clear the project environment for this project" → falls back to the global active environment
+```
+
+Resolution order: project-specific environment → global active environment.
+
 ---
 
 ## Tool Reference
 
-25 tools organized in 8 categories:
+27 tools organized in 8 categories:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -363,7 +376,7 @@ Save requests for reuse (with tags), manage variables across environments (dev/s
 | **Testing** | `assert` | 1 |
 | **Flows** | `flow_run` | 1 |
 | **Collections** | `collection_save` `collection_list` `collection_get` `collection_delete` | 4 |
-| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` `env_spec` | 8 |
+| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` `env_spec` `env_project_clear` `env_project_list` | 10 |
 | **API Specs** | `api_import` `api_spec_list` `api_endpoints` `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
 | **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` | 4 |
@@ -378,7 +391,8 @@ All data lives in `~/.api-testing/` (user home directory) as plain JSON — no d
 
 ```
 ~/.api-testing/
-├── active-env                     # Active environment name
+├── active-env                     # Global active environment name
+├── project-envs.json              # Per-project active environments
 ├── collections/                   # Saved requests
 ├── environments/                  # Environment variables (dev, prod, ...)
 └── specs/                         # Imported OpenAPI specs
@@ -412,7 +426,7 @@ Override the default directory in your MCP config:
 git clone https://github.com/cocaxcode/api-testing-mcp.git
 cd api-testing-mcp
 npm install
-npm test            # 77 tests across 10 suites
+npm test            # 83 tests across 10 suites
 npm run build       # ESM bundle via tsup
 npm run typecheck   # Strict TypeScript
 ```

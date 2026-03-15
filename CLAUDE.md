@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MCP server for API testing. Zero cloud dependencies, local JSON storage. 31 tools, 110 tests.
+MCP server for API testing. Zero cloud dependencies, local JSON storage. 35 tools, 120 tests.
 
 ## Stack
 
@@ -27,7 +27,7 @@ src/
 │   ├── flow.ts       # Request chaining tool (1)
 │   ├── mock.ts       # Mock data generation tool (1)
 │   ├── load-test.ts  # Load testing tool (1)
-│   └── utilities.ts  # export_curl, diff_responses, bulk_test, export/import_postman_collection, export/import_postman_environment (7)
+│   └── utilities.ts  # export_curl, diff_responses, bulk_test, export/import_collection, export/import_environment, export/import_postman_collection, export/import_postman_environment (11)
 ├── lib/              # Business logic (no MCP dependency)
 │   ├── types.ts      # Shared TypeScript interfaces
 │   ├── schemas.ts    # Shared Zod schemas (AuthSchema, HttpMethodSchema)

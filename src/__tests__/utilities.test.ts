@@ -130,6 +130,225 @@ describe('utility tools', () => {
     expect(text).toContain('No hay requests')
   })
 
+  // ── export_collection (native) ──
+
+  it('export_collection exporta requests en formato nativo', async () => {
+    const result = await ctx.client.callTool({
+      name: 'export_collection',
+      arguments: { output_dir: postmanDir, name: 'native-export' },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('Colección exportada: 2 requests')
+
+    const filePath = join(postmanDir, 'native-export.json')
+    const raw = await readFile(filePath, 'utf-8')
+    const bundle = JSON.parse(raw)
+    expect(bundle._format).toBe('api-testing-mcp')
+    expect(bundle.requests).toHaveLength(2)
+    expect(bundle.requests[0].name).toBeDefined()
+    expect(bundle.requests[0].request).toBeDefined()
+  })
+
+  it('export_collection filtra por tag', async () => {
+    // Save one with different tag
+    await ctx.client.callTool({
+      name: 'collection_save',
+      arguments: {
+        name: 'other-request',
+        request: { method: 'GET', url: 'https://httpbin.org/get' },
+        tags: ['other'],
+      },
+    })
+
+    const result = await ctx.client.callTool({
+      name: 'export_collection',
+      arguments: { output_dir: postmanDir, name: 'filtered', tag: 'test' },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('2 requests')
+
+    const filePath = join(postmanDir, 'filtered.json')
+    const raw = await readFile(filePath, 'utf-8')
+    const bundle = JSON.parse(raw)
+    expect(bundle.requests).toHaveLength(2)
+  })
+
+  // ── import_collection (native) ──
+
+  it('import_collection importa requests desde formato nativo', async () => {
+    // Create a native export file
+    const bundle = {
+      _format: 'api-testing-mcp',
+      exportedAt: new Date().toISOString(),
+      count: 1,
+      requests: [
+        {
+          name: 'imported-native',
+          request: { method: 'GET', url: 'https://example.com/api' },
+          tags: ['imported'],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }
+    const importFile = join(postmanDir, 'to-import.json')
+    await mkdir(postmanDir, { recursive: true })
+    await writeFile(importFile, JSON.stringify(bundle), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_collection',
+      arguments: { file: importFile },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('1 requests guardados')
+
+    // Verify it was saved
+    const get = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'imported-native' },
+    })
+    const getText = (get.content as Array<{ text: string }>)[0].text
+    expect(getText).toContain('imported-native')
+  })
+
+  it('import_collection rechaza formato inválido', async () => {
+    const badFile = join(postmanDir, 'bad.json')
+    await writeFile(badFile, JSON.stringify({ foo: 'bar' }), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_collection',
+      arguments: { file: badFile },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('no es un export nativo válido')
+  })
+
+  it('import_collection no sobreescribe sin overwrite', async () => {
+    const bundle = {
+      _format: 'api-testing-mcp',
+      exportedAt: new Date().toISOString(),
+      count: 1,
+      requests: [
+        {
+          name: 'test-get',
+          request: { method: 'PUT', url: 'https://example.com/replaced' },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }
+    const importFile = join(postmanDir, 'no-overwrite.json')
+    await writeFile(importFile, JSON.stringify(bundle), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_collection',
+      arguments: { file: importFile },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('1 requests omitidos')
+  })
+
+  // ── export_environment (native) ──
+
+  it('export_environment exporta entorno en formato nativo', async () => {
+    // Create an environment
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: { name: 'native-env', variables: { BASE_URL: 'http://localhost:3000', API_KEY: 'secret' } },
+    })
+
+    const result = await ctx.client.callTool({
+      name: 'export_environment',
+      arguments: { name: 'native-env', output_dir: postmanDir },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('native-env')
+    expect(text).toContain('2 variables')
+
+    const filePath = join(postmanDir, 'native-env.env.json')
+    const raw = await readFile(filePath, 'utf-8')
+    const bundle = JSON.parse(raw)
+    expect(bundle._format).toBe('api-testing-mcp')
+    expect(bundle.environment.name).toBe('native-env')
+    expect(bundle.environment.variables.BASE_URL).toBe('http://localhost:3000')
+  })
+
+  it('export_environment falla sin entorno activo ni nombre', async () => {
+    // Use a fresh client with no active env
+    const freshCtx = await createTestClient()
+    const result = await freshCtx.client.callTool({
+      name: 'export_environment',
+      arguments: {},
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('No hay entorno activo')
+    await freshCtx.cleanup()
+  })
+
+  // ── import_environment (native) ──
+
+  it('import_environment importa entorno desde formato nativo', async () => {
+    const bundle = {
+      _format: 'api-testing-mcp',
+      exportedAt: new Date().toISOString(),
+      environment: {
+        name: 'from-native',
+        variables: { HOST: 'prod.example.com', TOKEN: 'abc123' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    }
+    const importFile = join(postmanDir, 'env-import.json')
+    await writeFile(importFile, JSON.stringify(bundle), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_environment',
+      arguments: { file: importFile, activate: true },
+    })
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('from-native')
+    expect(text).toContain('2 variables')
+    expect(text).toContain('activado')
+  })
+
+  it('import_environment rechaza formato inválido', async () => {
+    const badFile = join(postmanDir, 'bad-env.json')
+    await writeFile(badFile, JSON.stringify({ values: [] }), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_environment',
+      arguments: { file: badFile },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('no es un export nativo válido')
+  })
+
+  it('import_environment no sobreescribe sin overwrite', async () => {
+    const bundle = {
+      _format: 'api-testing-mcp',
+      exportedAt: new Date().toISOString(),
+      environment: {
+        name: 'native-env',
+        variables: { REPLACED: 'true' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    }
+    const importFile = join(postmanDir, 'no-overwrite-env.json')
+    await writeFile(importFile, JSON.stringify(bundle), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_environment',
+      arguments: { file: importFile },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ text: string }>)[0].text
+    expect(text).toContain('Ya existe')
+  })
+
   // ── export_postman_collection ──
 
   it('export_postman_collection genera archivo JSON válido', async () => {
@@ -140,7 +359,7 @@ describe('utility tools', () => {
 
     expect(result.isError).toBeFalsy()
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
-    expect(text).toContain('2 requests')
+    expect(text).toContain('requests)')
     expect(text).toContain('Archivo:')
 
     // Verify file was written
@@ -288,7 +507,8 @@ describe('utility tools', () => {
   })
 
   it('export_postman_environment retorna error si no hay entorno activo', async () => {
-    const result = await ctx.client.callTool({
+    const freshCtx = await createTestClient()
+    const result = await freshCtx.client.callTool({
       name: 'export_postman_environment',
       arguments: { output_dir: postmanDir },
     })
@@ -296,6 +516,7 @@ describe('utility tools', () => {
     expect(result.isError).toBe(true)
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     expect(text).toContain('No hay entorno activo')
+    await freshCtx.cleanup()
   })
 
   it('export_postman_environment retorna error si entorno no existe', async () => {

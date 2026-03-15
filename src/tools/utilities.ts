@@ -7,7 +7,7 @@ import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { AuthSchema } from '../lib/schemas.js'
-import type { RequestConfig, AuthConfig, SavedRequest, HttpMethod } from '../lib/types.js'
+import type { RequestConfig, AuthConfig, SavedRequest, HttpMethod, Environment } from '../lib/types.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
   // ── export_curl ──
@@ -350,6 +350,333 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         return {
           content: [{ type: 'text' as const, text: lines.join('\n') }],
           isError: failed > 0,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── export_collection (native) ──
+
+  server.tool(
+    'export_collection',
+    'Exporta los requests guardados en formato nativo (JSON). Archivo portable entre instancias de api-testing-mcp.',
+    {
+      tag: z.string().optional().describe('Filtrar requests por tag'),
+      output_dir: z
+        .string()
+        .optional()
+        .describe('Directorio donde guardar el archivo (default: .api-testing/exports/)'),
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre del archivo sin extensión (default: "collection")'),
+    },
+    async (params) => {
+      try {
+        const collections = await storage.listCollections(params.tag)
+        if (collections.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: params.tag
+                  ? `No hay requests guardados con tag '${params.tag}'.`
+                  : 'No hay requests guardados en la colección.',
+              },
+            ],
+          }
+        }
+
+        const savedRequests: SavedRequest[] = []
+        for (const item of collections) {
+          const saved = await storage.getCollection(item.name)
+          if (saved) savedRequests.push(saved)
+        }
+
+        const bundle = {
+          _format: 'api-testing-mcp',
+          exportedAt: new Date().toISOString(),
+          count: savedRequests.length,
+          requests: savedRequests,
+        }
+
+        const json = JSON.stringify(bundle, null, 2)
+        const outputDir = params.output_dir ?? storage.exportsDir
+        await mkdir(outputDir, { recursive: true })
+        const fileName = (params.name ?? 'collection') + '.json'
+        const filePath = join(outputDir, fileName)
+        await writeFile(filePath, json, 'utf-8')
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Colección exportada: ${savedRequests.length} requests.\n\nArchivo: ${filePath}\n\nUsa import_collection para importar este archivo en otra instancia.`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── import_collection (native) ──
+
+  server.tool(
+    'import_collection',
+    'Importa requests desde un archivo nativo de api-testing-mcp (exportado con export_collection).',
+    {
+      file: z.string().describe('Ruta al archivo .json exportado con export_collection'),
+      tag: z
+        .string()
+        .optional()
+        .describe('Tag adicional para aplicar a todos los requests importados'),
+      overwrite: z
+        .boolean()
+        .optional()
+        .describe('Sobreescribir requests existentes con el mismo nombre (default: false)'),
+    },
+    async (params) => {
+      try {
+        const raw = await readFile(params.file, 'utf-8')
+        const bundle = JSON.parse(raw)
+
+        if (bundle._format !== 'api-testing-mcp' || !Array.isArray(bundle.requests)) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: El archivo no es un export nativo válido. Verifica que fue generado con export_collection.',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const overwrite = params.overwrite ?? false
+        const extraTag = params.tag
+        let imported = 0
+        let skipped = 0
+        const errors: string[] = []
+
+        for (const req of bundle.requests as SavedRequest[]) {
+          try {
+            if (!req.name || !req.request) {
+              errors.push(`Request sin nombre o configuración — omitido`)
+              continue
+            }
+
+            if (!overwrite) {
+              const existing = await storage.getCollection(req.name)
+              if (existing) {
+                skipped++
+                continue
+              }
+            }
+
+            // Add extra tag if provided
+            if (extraTag) {
+              const tags = req.tags ?? []
+              if (!tags.includes(extraTag)) tags.push(extraTag)
+              req.tags = tags
+            }
+
+            // Update timestamp
+            req.updatedAt = new Date().toISOString()
+
+            await storage.saveCollection(req)
+            imported++
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            errors.push(`${req.name ?? 'unknown'}: ${msg}`)
+          }
+        }
+
+        const lines: string[] = [
+          `Colección importada: ${imported} requests guardados.`,
+        ]
+        if (skipped > 0) lines.push(`${skipped} requests omitidos (ya existían, usa overwrite: true para sobreescribir).`)
+        if (errors.length > 0) {
+          lines.push(`${errors.length} errores:`)
+          for (const e of errors) lines.push(`  - ${e}`)
+        }
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── export_environment (native) ──
+
+  server.tool(
+    'export_environment',
+    'Exporta un entorno en formato nativo (JSON). Archivo portable entre instancias de api-testing-mcp.',
+    {
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre del entorno a exportar (default: entorno activo)'),
+      output_dir: z
+        .string()
+        .optional()
+        .describe('Directorio donde guardar el archivo (default: .api-testing/exports/)'),
+    },
+    async (params) => {
+      try {
+        let envName = params.name
+        if (!envName) {
+          envName = (await storage.getActiveEnvironment()) ?? undefined
+          if (!envName) {
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: 'No hay entorno activo. Especifica un nombre con el parámetro "name".',
+                },
+              ],
+              isError: true,
+            }
+          }
+        }
+
+        const env = await storage.getEnvironment(envName)
+        if (!env) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Entorno '${envName}' no encontrado.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const bundle = {
+          _format: 'api-testing-mcp',
+          exportedAt: new Date().toISOString(),
+          environment: env,
+        }
+
+        const json = JSON.stringify(bundle, null, 2)
+        const outputDir = params.output_dir ?? storage.exportsDir
+        await mkdir(outputDir, { recursive: true })
+        const fileName = env.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.env.json'
+        const filePath = join(outputDir, fileName)
+        await writeFile(filePath, json, 'utf-8')
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Entorno "${env.name}" exportado (${Object.keys(env.variables).length} variables).\n\nArchivo: ${filePath}\n\nUsa import_environment para importar este archivo en otra instancia.`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── import_environment (native) ──
+
+  server.tool(
+    'import_environment',
+    'Importa un entorno desde un archivo nativo de api-testing-mcp (exportado con export_environment).',
+    {
+      file: z.string().describe('Ruta al archivo .env.json exportado con export_environment'),
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre para el entorno (default: usa el nombre del archivo exportado)'),
+      overwrite: z
+        .boolean()
+        .optional()
+        .describe('Sobreescribir si ya existe un entorno con el mismo nombre (default: false)'),
+      activate: z
+        .boolean()
+        .optional()
+        .describe('Activar el entorno importado como entorno activo (default: false)'),
+    },
+    async (params) => {
+      try {
+        const raw = await readFile(params.file, 'utf-8')
+        const bundle = JSON.parse(raw)
+
+        if (bundle._format !== 'api-testing-mcp' || !bundle.environment) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: El archivo no es un export nativo válido. Verifica que fue generado con export_environment.',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const env = bundle.environment as Environment
+        const envName = params.name ?? env.name
+        const overwrite = params.overwrite ?? false
+
+        const existing = await storage.getEnvironment(envName)
+        if (existing && !overwrite) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: Ya existe un entorno '${envName}'. Usa overwrite: true para sobreescribir.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const now = new Date().toISOString()
+        await storage.createEnvironment({
+          name: envName,
+          variables: env.variables,
+          spec: env.spec,
+          createdAt: now,
+          updatedAt: now,
+        })
+
+        if (params.activate) {
+          await storage.setActiveEnvironment(envName)
+        }
+
+        const lines: string[] = [
+          `Entorno "${envName}" importado (${Object.keys(env.variables).length} variables).`,
+        ]
+        if (env.spec) lines.push(`Spec asociado: ${env.spec}`)
+        if (params.activate) lines.push('Entorno activado como activo.')
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

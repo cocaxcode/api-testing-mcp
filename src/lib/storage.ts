@@ -15,6 +15,7 @@ export class Storage {
   private readonly collectionsDir: string
   private readonly environmentsDir: string
   private readonly specsDir: string
+  readonly exportsDir: string
   private readonly activeEnvFile: string
   private readonly projectEnvsFile: string
 
@@ -23,6 +24,7 @@ export class Storage {
     this.collectionsDir = join(this.baseDir, 'collections')
     this.environmentsDir = join(this.baseDir, 'environments')
     this.specsDir = join(this.baseDir, 'specs')
+    this.exportsDir = join(this.baseDir, 'exports')
     this.activeEnvFile = join(this.baseDir, 'active-env')
     this.projectEnvsFile = join(this.baseDir, 'project-envs.json')
   }

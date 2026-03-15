@@ -43,7 +43,7 @@ No cloud accounts. No subscriptions. Everything runs locally and stores data as 
 ### Claude Code
 
 ```bash
-claude mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp
+claude mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp@latest
 ```
 
 ### Claude Desktop
@@ -58,7 +58,7 @@ Add to your config file:
   "mcpServers": {
     "api-testing": {
       "command": "npx",
-      "args": ["-y", "@cocaxcode/api-testing-mcp"]
+      "args": ["-y", "@cocaxcode/api-testing-mcp@latest"]
     }
   }
 }
@@ -73,7 +73,7 @@ Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for glob
   "mcpServers": {
     "api-testing": {
       "command": "npx",
-      "args": ["-y", "@cocaxcode/api-testing-mcp"]
+      "args": ["-y", "@cocaxcode/api-testing-mcp@latest"]
     }
   }
 }

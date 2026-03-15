@@ -213,6 +213,65 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     },
   )
 
+  // ── env_rename ──
+  server.tool(
+    'env_rename',
+    'Renombra un entorno existente. Si es el entorno activo, actualiza la referencia.',
+    {
+      name: z.string().describe('Nombre actual del entorno'),
+      new_name: z.string().describe('Nuevo nombre para el entorno'),
+    },
+    async (params) => {
+      try {
+        await storage.renameEnvironment(params.name, params.new_name)
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Entorno '${params.name}' renombrado a '${params.new_name}'`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── env_delete ──
+  server.tool(
+    'env_delete',
+    'Elimina un entorno y todas sus variables. Si es el entorno activo, lo desactiva.',
+    {
+      name: z.string().describe('Nombre del entorno a eliminar'),
+    },
+    async (params) => {
+      try {
+        await storage.deleteEnvironment(params.name)
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Entorno '${params.name}' eliminado`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
   // ── env_switch ──
   server.tool(
     'env_switch',

@@ -355,7 +355,7 @@ Save requests for reuse (with tags), manage variables across environments (dev/s
 
 ## Tool Reference
 
-20 tools organized in 8 categories:
+22 tools organized in 8 categories:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -363,7 +363,7 @@ Save requests for reuse (with tags), manage variables across environments (dev/s
 | **Testing** | `assert` | 1 |
 | **Flows** | `flow_run` | 1 |
 | **Collections** | `collection_save` `collection_list` `collection_get` `collection_delete` | 4 |
-| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` | 5 |
+| **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` | 7 |
 | **API Specs** | `api_import` `api_endpoints` `api_endpoint_detail` | 3 |
 | **Mock** | `mock` | 1 |
 | **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` | 4 |
@@ -374,10 +374,10 @@ You don't need to call these tools directly. Just describe what you want and the
 
 ## Storage
 
-All data lives in `.api-testing/` as plain JSON — no database, no cloud sync:
+All data lives in `~/.api-testing/` (user home directory) as plain JSON — no database, no cloud sync. This keeps credentials out of your project repos by default.
 
 ```
-.api-testing/
+~/.api-testing/
 ├── active-env                     # Active environment name
 ├── collections/                   # Saved requests
 ├── environments/                  # Environment variables (dev, prod, ...)
@@ -388,11 +388,11 @@ Override the default directory in your MCP config:
 
 ```json
 {
-  "env": { "API_TESTING_DIR": "/path/to/shared/.api-testing" }
+  "env": { "API_TESTING_DIR": "/path/to/custom/.api-testing" }
 }
 ```
 
-Commit these files to git to share API configurations across your team.
+> **Warning:** If you override `API_TESTING_DIR` to a path inside a git repository, add `.api-testing/` to your `.gitignore` to avoid accidentally pushing credentials (API keys, tokens, passwords) to your remote.
 
 ---
 
@@ -412,7 +412,7 @@ Commit these files to git to share API configurations across your team.
 git clone https://github.com/cocaxcode/api-testing-mcp.git
 cd api-testing-mcp
 npm install
-npm test            # 70 tests across 10 suites
+npm test            # 77 tests across 10 suites
 npm run build       # ESM bundle via tsup
 npm run typecheck   # Strict TypeScript
 ```

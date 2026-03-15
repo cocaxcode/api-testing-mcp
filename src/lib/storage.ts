@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile, readdir, unlink } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
   SavedRequest,
@@ -17,7 +18,7 @@ export class Storage {
   private readonly activeEnvFile: string
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? process.env.API_TESTING_DIR ?? join(process.cwd(), '.api-testing')
+    this.baseDir = baseDir ?? process.env.API_TESTING_DIR ?? join(homedir(), '.api-testing')
     this.collectionsDir = join(this.baseDir, 'collections')
     this.environmentsDir = join(this.baseDir, 'environments')
     this.specsDir = join(this.baseDir, 'specs')
@@ -133,6 +134,50 @@ export class Storage {
 
     await this.ensureDir('')
     await writeFile(this.activeEnvFile, name, 'utf-8')
+  }
+
+  async renameEnvironment(oldName: string, newName: string): Promise<void> {
+    const env = await this.getEnvironment(oldName)
+    if (!env) {
+      throw new Error(`Entorno '${oldName}' no encontrado`)
+    }
+
+    // Verificar que el nuevo nombre no exista
+    const existing = await this.getEnvironment(newName)
+    if (existing) {
+      throw new Error(`Ya existe un entorno con el nombre '${newName}'`)
+    }
+
+    // Crear con nuevo nombre y eliminar el anterior
+    env.name = newName
+    env.updatedAt = new Date().toISOString()
+    await this.createEnvironment(env)
+    await unlink(join(this.environmentsDir, `${this.sanitizeName(oldName)}.json`))
+
+    // Actualizar active-env si era el activo
+    const activeEnv = await this.getActiveEnvironment()
+    if (activeEnv === oldName) {
+      await writeFile(this.activeEnvFile, newName, 'utf-8')
+    }
+  }
+
+  async deleteEnvironment(name: string): Promise<void> {
+    const env = await this.getEnvironment(name)
+    if (!env) {
+      throw new Error(`Entorno '${name}' no encontrado`)
+    }
+
+    await unlink(join(this.environmentsDir, `${this.sanitizeName(name)}.json`))
+
+    // Limpiar active-env si era el activo
+    const activeEnv = await this.getActiveEnvironment()
+    if (activeEnv === name) {
+      try {
+        await unlink(this.activeEnvFile)
+      } catch {
+        // Ignorar si no existe
+      }
+    }
   }
 
   /**

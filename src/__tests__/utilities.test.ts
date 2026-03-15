@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { readFile, rm } from 'node:fs/promises'
+import { readFile, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createTestClient, type TestContext } from './helpers.js'
@@ -337,5 +337,417 @@ describe('utility tools', () => {
     const fileContent = await readFile(filePath, 'utf-8')
     const env = JSON.parse(fileContent)
     expect(env.name).toBe('active-env')
+  })
+
+  // ── import_postman_collection ──
+
+  it('import_postman_collection importa requests con folders como tags', async () => {
+    const collection = {
+      info: { name: 'My API', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      item: [
+        {
+          name: 'Users',
+          item: [
+            {
+              name: 'Get Users',
+              request: {
+                method: 'GET',
+                url: { raw: 'https://api.example.com/users', protocol: 'https', host: ['api', 'example', 'com'], path: ['users'] },
+                header: [{ key: 'Accept', value: 'application/json' }],
+              },
+            },
+            {
+              name: 'Create User',
+              request: {
+                method: 'POST',
+                url: 'https://api.example.com/users',
+                header: [{ key: 'Content-Type', value: 'application/json' }],
+                body: { mode: 'raw', raw: '{"name":"John","email":"john@example.com"}' },
+              },
+            },
+          ],
+        },
+        {
+          name: 'Health Check',
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/health',
+          },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-test.json')
+    await mkdir(postmanDir, { recursive: true })
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('3 requests guardados')
+    expect(text).toContain('My API')
+
+    // Verify imported requests exist
+    const getUsers = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'Get Users' },
+    })
+    expect(getUsers.isError).toBeFalsy()
+    const getUsersText = (getUsers.content as Array<{ type: string; text: string }>)[0].text
+    expect(getUsersText).toContain('GET')
+    expect(getUsersText).toContain('api.example.com/users')
+    expect(getUsersText).toContain('Users')
+  })
+
+  it('import_postman_collection importa auth bearer', async () => {
+    const collection = {
+      info: { name: 'Auth API' },
+      item: [
+        {
+          name: 'Secured Endpoint',
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/secure',
+            auth: {
+              type: 'bearer',
+              bearer: [{ key: 'token', value: 'my-secret-token', type: 'string' }],
+            },
+          },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-auth.json')
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+
+    const secured = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'Secured Endpoint' },
+    })
+    const text = (secured.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('bearer')
+    expect(text).toContain('my-secret-token')
+  })
+
+  it('import_postman_collection aplica extra tag', async () => {
+    const collection = {
+      info: { name: 'Tagged' },
+      item: [
+        {
+          name: 'Tagged Request',
+          request: { method: 'GET', url: 'https://api.example.com/tagged' },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-tagged.json')
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath, tag: 'imported' },
+    })
+
+    expect(result.isError).toBeFalsy()
+
+    const tagged = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'Tagged Request' },
+    })
+    const text = (tagged.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('imported')
+  })
+
+  it('import_postman_collection no sobreescribe por defecto', async () => {
+    // Save a request first
+    await ctx.client.callTool({
+      name: 'collection_save',
+      arguments: {
+        name: 'Existing Request',
+        request: { method: 'GET', url: 'https://original.com' },
+      },
+    })
+
+    const collection = {
+      info: { name: 'Overwrite Test' },
+      item: [
+        {
+          name: 'Existing Request',
+          request: { method: 'POST', url: 'https://new.com' },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-overwrite.json')
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('0 requests guardados')
+    expect(text).toContain('1 requests omitidos')
+  })
+
+  it('import_postman_collection con overwrite sobreescribe', async () => {
+    const collection = {
+      info: { name: 'Overwrite' },
+      item: [
+        {
+          name: 'Existing Request',
+          request: { method: 'PUT', url: 'https://overwritten.com' },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-overwrite2.json')
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath, overwrite: true },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('1 requests guardados')
+
+    const req = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'Existing Request' },
+    })
+    const reqText = (req.content as Array<{ type: string; text: string }>)[0].text
+    expect(reqText).toContain('PUT')
+    expect(reqText).toContain('overwritten.com')
+  })
+
+  it('import_postman_collection rechaza archivo sin items', async () => {
+    const filePath = join(postmanDir, 'import-invalid.json')
+    await writeFile(filePath, JSON.stringify({ info: { name: 'Bad' } }), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('no parece ser una Postman Collection')
+  })
+
+  it('import_postman_collection importa query params', async () => {
+    const collection = {
+      info: { name: 'Query' },
+      item: [
+        {
+          name: 'With Query',
+          request: {
+            method: 'GET',
+            url: {
+              raw: 'https://api.example.com/search?q=test&limit=10',
+              protocol: 'https',
+              host: ['api', 'example', 'com'],
+              path: ['search'],
+              query: [
+                { key: 'q', value: 'test' },
+                { key: 'limit', value: '10' },
+              ],
+            },
+          },
+        },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-query.json')
+    await writeFile(filePath, JSON.stringify(collection), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_collection',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+
+    const req = await ctx.client.callTool({
+      name: 'collection_get',
+      arguments: { name: 'With Query' },
+    })
+    const text = (req.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('q')
+    expect(text).toContain('test')
+  })
+
+  // ── import_postman_environment ──
+
+  it('import_postman_environment importa variables correctamente', async () => {
+    const postmanEnv = {
+      name: 'Production',
+      values: [
+        { key: 'BASE_URL', value: 'https://api.prod.com', enabled: true },
+        { key: 'TOKEN', value: 'prod-token-123', enabled: true },
+        { key: 'DISABLED', value: 'skip-me', enabled: false },
+      ],
+      _postman_variable_scope: 'environment',
+    }
+
+    const filePath = join(postmanDir, 'import-env.json')
+    await mkdir(postmanDir, { recursive: true })
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('Production')
+    expect(text).toContain('2 variables')
+
+    // Verify environment was created
+    const envResult = await ctx.client.callTool({
+      name: 'env_get',
+      arguments: { environment: 'Production' },
+    })
+    const envText = (envResult.content as Array<{ type: string; text: string }>)[0].text
+    expect(envText).toContain('BASE_URL')
+    expect(envText).toContain('api.prod.com')
+    expect(envText).not.toContain('DISABLED')
+  })
+
+  it('import_postman_environment usa nombre personalizado', async () => {
+    const postmanEnv = {
+      name: 'Original Name',
+      values: [{ key: 'FOO', value: 'bar', enabled: true }],
+    }
+
+    const filePath = join(postmanDir, 'import-env-rename.json')
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath, name: 'custom-name' },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('custom-name')
+  })
+
+  it('import_postman_environment rechaza si ya existe sin overwrite', async () => {
+    await ctx.client.callTool({
+      name: 'env_create',
+      arguments: { name: 'existing-env', variables: { X: '1' } },
+    })
+
+    const postmanEnv = {
+      name: 'existing-env',
+      values: [{ key: 'Y', value: '2', enabled: true }],
+    }
+
+    const filePath = join(postmanDir, 'import-env-exists.json')
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('Ya existe')
+  })
+
+  it('import_postman_environment con overwrite sobreescribe', async () => {
+    const postmanEnv = {
+      name: 'existing-env',
+      values: [{ key: 'NEW_VAR', value: 'new', enabled: true }],
+    }
+
+    const filePath = join(postmanDir, 'import-env-overwrite.json')
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath, overwrite: true },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('1 variables')
+  })
+
+  it('import_postman_environment activa el entorno si se pide', async () => {
+    const postmanEnv = {
+      name: 'auto-active',
+      values: [{ key: 'KEY', value: 'val', enabled: true }],
+    }
+
+    const filePath = join(postmanDir, 'import-env-activate.json')
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath, activate: true },
+    })
+
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('Entorno activado')
+  })
+
+  it('import_postman_environment rechaza archivo sin values', async () => {
+    const filePath = join(postmanDir, 'import-env-invalid.json')
+    await writeFile(filePath, JSON.stringify({ name: 'Bad' }), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('no parece ser un Postman Environment')
+  })
+
+  it('import_postman_environment prefiere currentValue sobre value', async () => {
+    const postmanEnv = {
+      name: 'current-val-test',
+      values: [
+        { key: 'API_KEY', value: 'initial', currentValue: 'current-secret', enabled: true },
+      ],
+    }
+
+    const filePath = join(postmanDir, 'import-env-current.json')
+    await writeFile(filePath, JSON.stringify(postmanEnv), 'utf-8')
+
+    const result = await ctx.client.callTool({
+      name: 'import_postman_environment',
+      arguments: { file: filePath },
+    })
+
+    expect(result.isError).toBeFalsy()
+
+    const envResult = await ctx.client.callTool({
+      name: 'env_get',
+      arguments: { environment: 'current-val-test' },
+    })
+    const text = (envResult.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('current-secret')
+    expect(text).not.toContain('initial')
   })
 })

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
@@ -7,7 +7,7 @@ import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { AuthSchema } from '../lib/schemas.js'
-import type { RequestConfig, AuthConfig, SavedRequest } from '../lib/types.js'
+import type { RequestConfig, AuthConfig, SavedRequest, HttpMethod } from '../lib/types.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
   // ── export_curl ──
@@ -481,6 +481,183 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
     },
   )
 
+  // ── import_postman_collection ──
+
+  server.tool(
+    'import_postman_collection',
+    'Importa una Postman Collection v2.1 (JSON) como requests guardados en la colección. Soporta folders, auth, headers, body y query params.',
+    {
+      file: z.string().describe('Ruta al archivo .postman_collection.json exportado de Postman'),
+      tag: z
+        .string()
+        .optional()
+        .describe('Tag adicional para aplicar a todos los requests importados'),
+      overwrite: z
+        .boolean()
+        .optional()
+        .describe('Sobreescribir requests existentes con el mismo nombre (default: false)'),
+    },
+    async (params) => {
+      try {
+        const raw = await readFile(params.file, 'utf-8')
+        const collection = JSON.parse(raw)
+
+        if (!collection.item || !Array.isArray(collection.item)) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: El archivo no parece ser una Postman Collection válida. Falta la propiedad "item".',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const overwrite = params.overwrite ?? false
+        const extraTag = params.tag
+
+        // Flatten items recursively (folders → items)
+        const flatItems = flattenPostmanItems(collection.item, collection.auth)
+        let imported = 0
+        let skipped = 0
+        const errors: string[] = []
+
+        for (const item of flatItems) {
+          try {
+            const saved = parsePostmanItem(item, extraTag)
+            if (!saved) continue
+
+            if (!overwrite) {
+              const existing = await storage.getCollection(saved.name)
+              if (existing) {
+                skipped++
+                continue
+              }
+            }
+
+            await storage.saveCollection(saved)
+            imported++
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            errors.push(`${item.name ?? 'unknown'}: ${msg}`)
+          }
+        }
+
+        const lines: string[] = [
+          `Postman Collection importada: ${imported} requests guardados.`,
+        ]
+        if (skipped > 0) lines.push(`${skipped} requests omitidos (ya existían, usa overwrite: true para sobreescribir).`)
+        if (errors.length > 0) {
+          lines.push(`${errors.length} errores:`)
+          for (const e of errors) lines.push(`  - ${e}`)
+        }
+        if (collection.info?.name) lines.push(`\nColección: ${collection.info.name}`)
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── import_postman_environment ──
+
+  server.tool(
+    'import_postman_environment',
+    'Importa un Postman Environment (JSON) como entorno local. Soporta variables con valores initial/current.',
+    {
+      file: z.string().describe('Ruta al archivo .postman_environment.json exportado de Postman'),
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre para el entorno (default: usa el nombre del archivo Postman)'),
+      overwrite: z
+        .boolean()
+        .optional()
+        .describe('Sobreescribir si ya existe un entorno con el mismo nombre (default: false)'),
+      activate: z
+        .boolean()
+        .optional()
+        .describe('Activar el entorno importado como entorno activo (default: false)'),
+    },
+    async (params) => {
+      try {
+        const raw = await readFile(params.file, 'utf-8')
+        const postmanEnv = JSON.parse(raw)
+
+        if (!postmanEnv.values || !Array.isArray(postmanEnv.values)) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: El archivo no parece ser un Postman Environment válido. Falta la propiedad "values".',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const envName = params.name ?? postmanEnv.name ?? 'postman-import'
+        const overwrite = params.overwrite ?? false
+
+        const existing = await storage.getEnvironment(envName)
+        if (existing && !overwrite) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: Ya existe un entorno '${envName}'. Usa overwrite: true para sobreescribir.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        // Parse variables — prefer currentValue over value (Postman v2.1 uses both)
+        const variables: Record<string, string> = {}
+        for (const v of postmanEnv.values) {
+          if (!v.key) continue
+          if (v.enabled === false) continue
+          variables[v.key] = String(v.currentValue ?? v.value ?? '')
+        }
+
+        const now = new Date().toISOString()
+        await storage.createEnvironment({
+          name: envName,
+          variables,
+          createdAt: now,
+          updatedAt: now,
+        })
+
+        if (params.activate) {
+          await storage.setActiveEnvironment(envName)
+        }
+
+        const lines: string[] = [
+          `Postman Environment "${envName}" importado (${Object.keys(variables).length} variables).`,
+        ]
+        if (params.activate) lines.push('Entorno activado como activo.')
+
+        return {
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
   // ── export_postman_environment ──
 
   server.tool(
@@ -672,5 +849,186 @@ function buildPostmanAuth(auth: AuthConfig): Record<string, unknown> {
           { key: 'password', value: auth.password ?? '', type: 'string' },
         ],
       }
+  }
+}
+
+// ── Postman import helpers ──
+
+interface PostmanItem {
+  name?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  request?: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  item?: any[]
+  _folderTags?: string[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _inheritedAuth?: any
+}
+
+/**
+ * Flatten Postman collection items recursively.
+ * Folders become tags; auth is inherited from parent.
+ */
+function flattenPostmanItems(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  items: any[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parentAuth?: any,
+  parentTags: string[] = [],
+): PostmanItem[] {
+  const result: PostmanItem[] = []
+
+  for (const item of items) {
+    if (item.item && Array.isArray(item.item)) {
+      // It's a folder — recurse
+      const folderTags = item.name ? [...parentTags, item.name] : parentTags
+      const folderAuth = item.auth ?? parentAuth
+      result.push(...flattenPostmanItems(item.item, folderAuth, folderTags))
+    } else if (item.request) {
+      result.push({
+        ...item,
+        _folderTags: parentTags,
+        _inheritedAuth: item.request?.auth ? undefined : parentAuth,
+      })
+    }
+  }
+
+  return result
+}
+
+const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
+
+/**
+ * Convert a Postman item to a SavedRequest.
+ */
+function parsePostmanItem(item: PostmanItem, extraTag?: string): SavedRequest | null {
+  const req = item.request
+  if (!req) return null
+
+  // Method
+  const method = (typeof req.method === 'string' ? req.method.toUpperCase() : 'GET') as HttpMethod
+  if (!VALID_METHODS.has(method)) return null
+
+  // URL
+  const url = parsePostmanUrl(req.url)
+  if (!url) return null
+
+  // Headers
+  const headers: Record<string, string> = {}
+  if (Array.isArray(req.header)) {
+    for (const h of req.header) {
+      if (h.disabled) continue
+      if (h.key && h.value !== undefined) {
+        headers[h.key] = String(h.value)
+      }
+    }
+  }
+
+  // Query params
+  const query: Record<string, string> = {}
+  if (req.url && typeof req.url === 'object' && Array.isArray(req.url.query)) {
+    for (const q of req.url.query) {
+      if (q.disabled) continue
+      if (q.key) {
+        query[q.key] = String(q.value ?? '')
+      }
+    }
+  }
+
+  // Body
+  let body: unknown = undefined
+  if (req.body) {
+    if (req.body.mode === 'raw' && typeof req.body.raw === 'string') {
+      try {
+        body = JSON.parse(req.body.raw)
+      } catch {
+        body = req.body.raw
+      }
+    } else if (req.body.mode === 'urlencoded' && Array.isArray(req.body.urlencoded)) {
+      const formData: Record<string, string> = {}
+      for (const p of req.body.urlencoded) {
+        if (p.key) formData[p.key] = String(p.value ?? '')
+      }
+      body = formData
+    } else if (req.body.mode === 'formdata' && Array.isArray(req.body.formdata)) {
+      const formData: Record<string, string> = {}
+      for (const p of req.body.formdata) {
+        if (p.key && p.type !== 'file') formData[p.key] = String(p.value ?? '')
+      }
+      body = formData
+    }
+  }
+
+  // Auth (from request or inherited from folder/collection)
+  const authSource = req.auth ?? item._inheritedAuth
+  const auth = parsePostmanAuth(authSource)
+
+  // Tags from folder hierarchy + extra tag
+  const tags: string[] = [...(item._folderTags ?? [])]
+  if (extraTag && !tags.includes(extraTag)) tags.push(extraTag)
+
+  // Build request name
+  const name = item.name || `${method} ${url}`
+
+  const now = new Date().toISOString()
+
+  const config: RequestConfig = { method, url }
+  if (Object.keys(headers).length > 0) config.headers = headers
+  if (Object.keys(query).length > 0) config.query = query
+  if (body !== undefined) config.body = body
+  if (auth) config.auth = auth
+
+  return {
+    name,
+    request: config,
+    tags: tags.length > 0 ? tags : undefined,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parsePostmanUrl(url: any): string | null {
+  if (typeof url === 'string') return url || null
+  if (url && typeof url === 'object') {
+    if (typeof url.raw === 'string') return url.raw || null
+    // Build from parts
+    const protocol = url.protocol ?? 'https'
+    const host = Array.isArray(url.host) ? url.host.join('.') : url.host
+    const path = Array.isArray(url.path) ? url.path.join('/') : url.path ?? ''
+    if (host) return `${protocol}://${host}${path ? '/' + path : ''}`
+  }
+  return null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parsePostmanAuth(auth: any): AuthConfig | undefined {
+  if (!auth || !auth.type) return undefined
+
+  // Helper to get value from Postman auth key-value arrays
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getVal = (arr: any[] | undefined, key: string): string | undefined => {
+    if (!Array.isArray(arr)) return undefined
+    const item = arr.find((a) => a.key === key)
+    return item?.value ? String(item.value) : undefined
+  }
+
+  switch (auth.type) {
+    case 'bearer': {
+      const token = getVal(auth.bearer, 'token')
+      return token ? { type: 'bearer', token } : undefined
+    }
+    case 'apikey': {
+      const key = getVal(auth.apikey, 'key')
+      const headerName = getVal(auth.apikey, 'value')
+      return key ? { type: 'api-key', key, header: headerName } : undefined
+    }
+    case 'basic': {
+      const username = getVal(auth.basic, 'username')
+      const password = getVal(auth.basic, 'password')
+      return username ? { type: 'basic', username, password } : undefined
+    }
+    default:
+      return undefined
   }
 }

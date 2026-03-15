@@ -2,7 +2,7 @@
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
     <strong>The most complete API testing MCP server available.</strong><br/>
-    29 tools &middot; Zero config &middot; Zero dependencies &middot; Everything runs inside your AI conversation.
+    31 tools &middot; Zero config &middot; Zero dependencies &middot; Everything runs inside your AI conversation.
   </p>
 </p>
 
@@ -11,8 +11,8 @@
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
-  <img src="https://img.shields.io/badge/tools-29-blueviolet?style=flat-square" alt="29 tools" />
-  <img src="https://img.shields.io/badge/tests-96-brightgreen?style=flat-square" alt="96 tests" />
+  <img src="https://img.shields.io/badge/tools-31-blueviolet?style=flat-square" alt="29 tools" />
+  <img src="https://img.shields.io/badge/tests-110-brightgreen?style=flat-square" alt="96 tests" />
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 ## What is this?
 
-An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to **test, validate, mock, chain, diff, load-test, export to Postman, and manage** any API — all from natural language.
+An [MCP server](https://modelcontextprotocol.io) that gives your AI assistant the ability to **test, validate, mock, chain, diff, load-test, import/export Postman collections, and manage** any API — all from natural language.
 
 You describe what you need. The AI figures out the rest.
 
@@ -47,17 +47,17 @@ There are other API testing MCP servers out there. Here's why this one is differ
 
 | Capability | @cocaxcode/api-testing-mcp | Others |
 |---|:---:|:---:|
-| HTTP requests with auth | 29 tools | 1-11 tools |
+| HTTP requests with auth | 31 tools | 1-11 tools |
 | Assertions (eq, neq, gt, lt, contains, exists, type...) | 10 operators | Status code only or none |
 | Request flows with variable extraction | `flow_run` with `extract` | Not available |
-| Collections with tags and CRUD | Full CRUD + tag filtering | Import from Postman or none |
+| Collections with tags and CRUD | Full CRUD + tag filtering | Basic or none |
 | Environments with variable interpolation | CRUD + project-scoped | Manual `set_env_vars` or none |
 | OpenAPI import with `$ref`, `allOf`, `oneOf`, `anyOf` | ~95% real-world coverage | Basic or none |
 | Mock data generation from schemas | Types, formats, enums | Not available |
 | Load testing with percentiles | p50/p95/p99 + req/s | Basic or none |
 | Response diffing | Field-by-field comparison | Not available |
 | Bulk testing by tag | Collection-wide pass/fail | Not available |
-| **Postman export (collection + environment)** | **Files ready to import** | **Not available** |
+| **Postman import + export** | **Bidirectional: import from & export to Postman** | **Not available** |
 | cURL export | With resolved variables | Not available |
 | Project-scoped environments | Per-directory context | Not available |
 | External dependencies | **Zero** — just Node.js | Playwright, Jest, pytest... |
@@ -183,6 +183,8 @@ You don't need to memorize tool names, parameters, or JSON structures — just t
 | *"How fast is the health endpoint under load?"* | Fires 50 concurrent requests, reports p50/p95/p99 latencies |
 | *"Run all my saved smoke tests"* | Executes every request tagged `smoke`, reports pass/fail |
 | *"Export the create-user request as curl"* | Builds a ready-to-paste cURL command with resolved variables |
+| *"Import my Postman collection from exported.json"* | Reads a Postman Collection v2.1, converts all requests into saved collection items |
+| *"Import the Postman environment from prod.postman_environment.json"* | Imports variables from a Postman Environment file |
 | *"Export my collection to Postman"* | Writes a `.postman_collection.json` file ready to import |
 | *"Export the dev environment for Postman"* | Writes a `.postman_environment.json` file ready to import |
 | *"Compare the users endpoint between dev and prod"* | Hits both URLs, diffs status codes, body, and timing |
@@ -399,9 +401,33 @@ BULK TEST — 8/8 passed | 1.2s total
   login        — POST /auth/login  → 200 (156ms)
 ```
 
-### Postman Export
+### Postman Import & Export
 
-Export your saved requests and environments as Postman-compatible JSON files. The files are written to a `postman/` folder in your project, ready to import in Postman.
+**Bidirectional Postman support.** Import existing Postman collections and environments, or export yours for use in Postman. Migrate seamlessly between Postman and your AI workflow.
+
+#### Import from Postman
+
+```
+"Import my Postman collection from ./exported.postman_collection.json"
+"Import the collection and tag everything as legacy"
+"Import the Postman environment from ./prod.postman_environment.json and activate it"
+```
+
+**Collection import features:**
+- Postman Collection **v2.1** format (the default Postman export)
+- **Folders become tags** — a request inside `Users > Admin` gets tags `["Users", "Admin"]`
+- Auth inherited from folders/collection level (Bearer, API Key, Basic)
+- Body parsing: raw JSON, x-www-form-urlencoded, form-data
+- Query params, headers, and disabled items handled correctly
+- `overwrite` option to update existing requests
+
+**Environment import features:**
+- Prefers `currentValue` over `value` (matches Postman runtime behavior)
+- Skips disabled variables
+- Optional `activate` flag to make it the active environment immediately
+- Custom name override
+
+#### Export to Postman
 
 ```
 "Export my collection to Postman"
@@ -418,31 +444,30 @@ your-project/
     └── dev.postman_environment.json          ← Import in Postman: File → Import
 ```
 
-**Collection features:**
+**Collection export features:**
 - Requests grouped in **folders by tag** (smoke, auth, users, etc.)
 - Auth (Bearer, API Key, Basic) mapped to Postman's native auth format
 - `{{variables}}` preserved as-is (Postman uses the same syntax)
 - Headers, query params, and JSON body included
 - Collection variables from your active environment
 
-**Environment features:**
+**Environment export features:**
 - All variables exported with `enabled: true`
 - Postman-compatible format (`_postman_variable_scope: "environment"`)
 - Works with any environment (active or by name)
 
 <details>
-<summary>Example: exporting with a specific tag</summary>
+<summary>Example: round-trip workflow</summary>
 
 ```
-You: "Export my smoke tests to Postman as 'Smoke Tests'"
-```
+You: "Import the Postman collection from ./legacy-api.postman_collection.json with tag migrated"
+→ 47 requests imported with tag "migrated"
 
-This creates `postman/smoke-tests.postman_collection.json` with only the requests tagged `smoke`, grouped in folders.
+You: "Run all migrated requests"
+→ Bulk test: 45/47 passed
 
-You can also specify a custom output directory:
-
-```
-You: "Export my collection to Postman in the exports folder"
+You: "Fix the failing ones and export back to Postman"
+→ Updated collection exported to postman/legacy-api.postman_collection.json
 ```
 
 </details>
@@ -494,7 +519,7 @@ Resolution order: project-specific environment → global active environment.
 
 ## Tool Reference
 
-29 tools organized in 8 categories:
+31 tools organized in 8 categories:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -505,7 +530,7 @@ Resolution order: project-specific environment → global active environment.
 | **Environments** | `env_create` `env_list` `env_set` `env_get` `env_switch` `env_rename` `env_delete` `env_spec` `env_project_clear` `env_project_list` | 10 |
 | **API Specs** | `api_import` `api_spec_list` `api_endpoints` `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
-| **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` `export_postman_collection` `export_postman_environment` | 6 |
+| **Utilities** | `load_test` `export_curl` `diff_responses` `bulk_test` `import_postman_collection` `import_postman_environment` `export_postman_collection` `export_postman_environment` | 8 |
 
 You don't need to call these tools directly. Just describe what you want and the AI picks the right one.
 
@@ -541,14 +566,14 @@ Override the default directory in your MCP config:
 Built for reliability and testability:
 
 - **Zero runtime dependencies** — only `@modelcontextprotocol/sdk` and `zod`
-- **96 integration tests** with mocked fetch (no network calls in CI)
+- **110 integration tests** with mocked fetch (no network calls in CI)
 - **Factory pattern** — `createServer(storageDir?)` for isolated test instances
 - **Strict TypeScript** — zero `any`, full type coverage
 - **< 95KB** bundled output via tsup
 
 ```
 src/
-├── tools/           # 29 MCP tool handlers (one file per category)
+├── tools/           # 31 MCP tool handlers (one file per category)
 ├── lib/             # Business logic (no MCP dependency)
 │   ├── http-client  # fetch wrapper with timing
 │   ├── storage      # JSON file storage engine
@@ -557,7 +582,7 @@ src/
 │   ├── path         # Dot-notation accessor (body.data.0.id)
 │   ├── interpolation # {{variable}} resolver
 │   └── openapi-parser # $ref + allOf/oneOf/anyOf resolution
-└── __tests__/       # 10 test suites, 96 tests
+└── __tests__/       # 10 test suites, 110 tests
 ```
 
 ---
@@ -578,7 +603,7 @@ src/
 git clone https://github.com/cocaxcode/api-testing-mcp.git
 cd api-testing-mcp
 npm install
-npm test            # 96 tests across 10 suites
+npm test            # 110 tests across 10 suites
 npm run build       # ESM bundle via tsup
 npm run typecheck   # Strict TypeScript
 ```

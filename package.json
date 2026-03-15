@@ -1,7 +1,7 @@
 {
   "name": "@cocaxcode/api-testing-mcp",
-  "version": "0.8.3",
-  "description": "The most complete MCP server for API testing. 27 tools: HTTP requests, assertions, request flows, OpenAPI import, mock data, load testing, collections, environments, cURL export, response diffing. Zero config, zero dependencies.",
+  "version": "0.9.0",
+  "description": "The most complete MCP server for API testing. 29 tools: HTTP requests, assertions, request flows, OpenAPI import, mock data, load testing, collections, environments, Postman export, cURL export, response diffing. Zero config, zero dependencies.",
   "type": "module",
   "bin": {
     "api-testing-mcp": "dist/index.js"
@@ -40,6 +40,8 @@
     "assertions",
     "curl",
     "postman-alternative",
+    "postman-export",
+    "postman-collection",
     "claude",
     "claude-code",
     "claude-desktop",

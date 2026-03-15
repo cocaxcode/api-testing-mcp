@@ -1,11 +1,13 @@
 import { z } from 'zod'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { AuthSchema } from '../lib/schemas.js'
-import type { RequestConfig } from '../lib/types.js'
+import type { RequestConfig, AuthConfig, SavedRequest } from '../lib/types.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
   // ── export_curl ──
@@ -358,4 +360,317 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
       }
     },
   )
+
+  // ── export_postman_collection ──
+
+  server.tool(
+    'export_postman_collection',
+    'Exporta los requests guardados como una Postman Collection v2.1 (JSON). Escribe el archivo en disco, importable directamente en Postman.',
+    {
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre de la colección (default: "API Testing Collection")'),
+      tag: z.string().optional().describe('Filtrar requests por tag'),
+      output_dir: z
+        .string()
+        .optional()
+        .describe('Directorio donde guardar el archivo (default: ./postman/)'),
+      resolve_variables: z
+        .boolean()
+        .optional()
+        .describe('Resolver {{variables}} del entorno activo (default: false)'),
+    },
+    async (params) => {
+      try {
+        const collections = await storage.listCollections(params.tag)
+        if (collections.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: params.tag
+                  ? `No hay requests guardados con tag '${params.tag}'.`
+                  : 'No hay requests guardados en la colección.',
+              },
+            ],
+          }
+        }
+
+        const resolveVars = params.resolve_variables ?? false
+        const variables = resolveVars ? await storage.getActiveVariables() : {}
+
+        // Load full requests
+        const savedRequests: SavedRequest[] = []
+        for (const item of collections) {
+          const saved = await storage.getCollection(item.name)
+          if (saved) savedRequests.push(saved)
+        }
+
+        // Group by tags for folder structure
+        const tagged = new Map<string, SavedRequest[]>()
+        const untagged: SavedRequest[] = []
+
+        for (const saved of savedRequests) {
+          if (saved.tags && saved.tags.length > 0) {
+            const tag = saved.tags[0]
+            if (!tagged.has(tag)) tagged.set(tag, [])
+            tagged.get(tag)!.push(saved)
+          } else {
+            untagged.push(saved)
+          }
+        }
+
+        // Build Postman items
+        const items: unknown[] = []
+
+        for (const [tag, requests] of tagged) {
+          items.push({
+            name: tag,
+            item: requests.map((r) => buildPostmanItem(r, variables, resolveVars)),
+          })
+        }
+
+        for (const saved of untagged) {
+          items.push(buildPostmanItem(saved, variables, resolveVars))
+        }
+
+        // Include environment variables as collection variables
+        const activeVars = await storage.getActiveVariables()
+        const collectionVars = Object.entries(activeVars).map(([key, value]) => ({
+          key,
+          value,
+          type: 'string',
+        }))
+
+        const collectionName = params.name ?? 'API Testing Collection'
+
+        const postmanCollection = {
+          info: {
+            name: collectionName,
+            schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+          },
+          item: items,
+          variable: collectionVars,
+        }
+
+        const json = JSON.stringify(postmanCollection, null, 2)
+
+        // Write to file
+        const outputDir = params.output_dir ?? join(process.cwd(), 'postman')
+        await mkdir(outputDir, { recursive: true })
+        const fileName = collectionName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.postman_collection.json'
+        const filePath = join(outputDir, fileName)
+        await writeFile(filePath, json, 'utf-8')
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Postman Collection v2.1 exportada (${savedRequests.length} requests).\n\nArchivo: ${filePath}\n\nImporta este archivo en Postman: File → Import → selecciona el archivo.`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+
+  // ── export_postman_environment ──
+
+  server.tool(
+    'export_postman_environment',
+    'Exporta un entorno como Postman Environment (JSON). Escribe el archivo en disco, importable directamente en Postman.',
+    {
+      name: z
+        .string()
+        .optional()
+        .describe('Nombre del entorno a exportar (default: entorno activo)'),
+      output_dir: z
+        .string()
+        .optional()
+        .describe('Directorio donde guardar el archivo (default: ./postman/)'),
+    },
+    async (params) => {
+      try {
+        let envName = params.name
+        if (!envName) {
+          envName = (await storage.getActiveEnvironment()) ?? undefined
+          if (!envName) {
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: 'No hay entorno activo. Especifica un nombre con el parámetro "name".',
+                },
+              ],
+              isError: true,
+            }
+          }
+        }
+
+        const env = await storage.getEnvironment(envName)
+        if (!env) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Entorno '${envName}' no encontrado.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const postmanEnv = {
+          name: env.name,
+          values: Object.entries(env.variables).map(([key, value]) => ({
+            key,
+            value,
+            type: 'default',
+            enabled: true,
+          })),
+          _postman_variable_scope: 'environment',
+        }
+
+        const json = JSON.stringify(postmanEnv, null, 2)
+
+        // Write to file
+        const outputDir = params.output_dir ?? join(process.cwd(), 'postman')
+        await mkdir(outputDir, { recursive: true })
+        const fileName = env.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.postman_environment.json'
+        const filePath = join(outputDir, fileName)
+        await writeFile(filePath, json, 'utf-8')
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Postman Environment "${env.name}" exportado (${Object.keys(env.variables).length} variables).\n\nArchivo: ${filePath}\n\nImporta este archivo en Postman: File → Import → selecciona el archivo.`,
+            },
+          ],
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          content: [{ type: 'text' as const, text: `Error: ${message}` }],
+          isError: true,
+        }
+      }
+    },
+  )
+}
+
+// ── Postman helpers ──
+
+function buildPostmanItem(
+  saved: SavedRequest,
+  variables: Record<string, string>,
+  resolveVars: boolean,
+): unknown {
+  let config = saved.request
+  if (resolveVars) {
+    const resolvedUrl = resolveUrl(config.url, variables)
+    config = { ...config, url: resolvedUrl }
+    config = interpolateRequest(config, variables)
+  }
+
+  const item: Record<string, unknown> = {
+    name: saved.name,
+    request: buildPostmanRequest(config),
+  }
+
+  return item
+}
+
+function buildPostmanRequest(config: RequestConfig): unknown {
+  const request: Record<string, unknown> = {
+    method: config.method,
+    header: buildPostmanHeaders(config.headers),
+    url: buildPostmanUrl(config.url, config.query),
+  }
+
+  if (config.body !== undefined && config.body !== null) {
+    request.body = {
+      mode: 'raw',
+      raw: typeof config.body === 'string' ? config.body : JSON.stringify(config.body, null, 2),
+      options: { raw: { language: 'json' } },
+    }
+    // Add Content-Type header if not already present
+    const headers = request.header as Array<{ key: string; value: string }>
+    if (!headers.some((h) => h.key.toLowerCase() === 'content-type')) {
+      headers.push({ key: 'Content-Type', value: 'application/json' })
+    }
+  }
+
+  if (config.auth) {
+    request.auth = buildPostmanAuth(config.auth)
+  }
+
+  return request
+}
+
+function buildPostmanHeaders(
+  headers?: Record<string, string>,
+): Array<{ key: string; value: string }> {
+  if (!headers) return []
+  return Object.entries(headers).map(([key, value]) => ({ key, value }))
+}
+
+function buildPostmanUrl(
+  rawUrl: string,
+  query?: Record<string, string>,
+): Record<string, unknown> {
+  const url: Record<string, unknown> = { raw: rawUrl }
+
+  // Parse protocol, host, path
+  const match = rawUrl.match(/^(https?):\/\/([^/]+)(\/.*)?$/)
+  if (match) {
+    url.protocol = match[1]
+    url.host = match[2].split('.')
+    url.path = match[3] ? match[3].slice(1).split('/') : []
+  }
+
+  if (query && Object.keys(query).length > 0) {
+    url.query = Object.entries(query).map(([key, value]) => ({ key, value }))
+    // Append query to raw URL
+    const queryStr = Object.entries(query)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('&')
+    url.raw = rawUrl + (rawUrl.includes('?') ? '&' : '?') + queryStr
+  }
+
+  return url
+}
+
+function buildPostmanAuth(auth: AuthConfig): Record<string, unknown> {
+  switch (auth.type) {
+    case 'bearer':
+      return {
+        type: 'bearer',
+        bearer: [{ key: 'token', value: auth.token ?? '', type: 'string' }],
+      }
+    case 'api-key':
+      return {
+        type: 'apikey',
+        apikey: [
+          { key: 'key', value: auth.key ?? '', type: 'string' },
+          { key: 'value', value: auth.header ?? 'X-API-Key', type: 'string' },
+          { key: 'in', value: 'header', type: 'string' },
+        ],
+      }
+    case 'basic':
+      return {
+        type: 'basic',
+        basic: [
+          { key: 'username', value: auth.username ?? '', type: 'string' },
+          { key: 'password', value: auth.password ?? '', type: 'string' },
+        ],
+      }
+  }
 }

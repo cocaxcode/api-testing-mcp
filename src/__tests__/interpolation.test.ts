@@ -89,4 +89,27 @@ describe('interpolateRequest', () => {
     const result = interpolateRequest(baseConfig, variables)
     expect(result.body).toBeUndefined()
   })
+
+  it('interpola variables en auth.token', () => {
+    const config: RequestConfig = {
+      ...baseConfig,
+      auth: { type: 'bearer', token: '{{TOKEN}}' },
+    }
+    const result = interpolateRequest(config, variables)
+    expect(result.auth?.token).toBe('abc123')
+  })
+
+  it('interpola variables en auth.key', () => {
+    const config: RequestConfig = {
+      ...baseConfig,
+      auth: { type: 'api-key', key: '{{TOKEN}}', header: 'X-API-Key' },
+    }
+    const result = interpolateRequest(config, variables)
+    expect(result.auth?.key).toBe('abc123')
+  })
+
+  it('mantiene auth undefined si no se define', () => {
+    const result = interpolateRequest(baseConfig, variables)
+    expect(result.auth).toBeUndefined()
+  })
 })

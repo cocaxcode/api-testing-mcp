@@ -73,5 +73,8 @@ export function interpolateRequest(
     headers: interpolateRecord(config.headers, variables),
     query: interpolateRecord(config.query, variables),
     body: config.body !== undefined ? interpolateValue(config.body, variables) : undefined,
+    auth: config.auth
+      ? (interpolateValue(config.auth, variables) as RequestConfig['auth'])
+      : undefined,
   }
 }

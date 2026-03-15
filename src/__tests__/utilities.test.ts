@@ -135,12 +135,12 @@ describe('utility tools', () => {
   it('export_collection exporta requests en formato nativo', async () => {
     const result = await ctx.client.callTool({
       name: 'export_collection',
-      arguments: { output_dir: postmanDir, name: 'native-export' },
+      arguments: { output_dir: postmanDir },
     })
     const text = (result.content as Array<{ text: string }>)[0].text
     expect(text).toContain('Colección exportada: 2 requests')
 
-    const filePath = join(postmanDir, 'native-export.json')
+    const filePath = join(postmanDir, 'collection.json')
     const raw = await readFile(filePath, 'utf-8')
     const bundle = JSON.parse(raw)
     expect(bundle._format).toBe('api-testing-mcp')
@@ -160,14 +160,15 @@ describe('utility tools', () => {
       },
     })
 
+    const exportDir = join(postmanDir, 'filtered')
     const result = await ctx.client.callTool({
       name: 'export_collection',
-      arguments: { output_dir: postmanDir, name: 'filtered', tag: 'test' },
+      arguments: { output_dir: exportDir, tag: 'test' },
     })
     const text = (result.content as Array<{ text: string }>)[0].text
     expect(text).toContain('2 requests')
 
-    const filePath = join(postmanDir, 'filtered.json')
+    const filePath = join(exportDir, 'collection.json')
     const raw = await readFile(filePath, 'utf-8')
     const bundle = JSON.parse(raw)
     expect(bundle.requests).toHaveLength(2)
@@ -323,7 +324,7 @@ describe('utility tools', () => {
     })
     expect(result.isError).toBe(true)
     const text = (result.content as Array<{ text: string }>)[0].text
-    expect(text).toContain('no es un export nativo válido')
+    expect(text).toContain('formato no válido')
   })
 
   it('import_environment no sobreescribe sin overwrite', async () => {
@@ -346,7 +347,7 @@ describe('utility tools', () => {
     })
     expect(result.isError).toBe(true)
     const text = (result.content as Array<{ text: string }>)[0].text
-    expect(text).toContain('Ya existe')
+    expect(text).toContain('ya existe')
   })
 
   // ── export_postman_collection ──

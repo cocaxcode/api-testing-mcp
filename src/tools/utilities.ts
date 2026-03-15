@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, writeFile, readdir, access } from 'node:fs/promises'
+import { join, dirname } from 'node:path'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
@@ -363,19 +363,17 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   // ── export_collection (native) ──
 
+  const ATM_DIR = join(process.cwd(), '.atm')
+
   server.tool(
     'export_collection',
-    'Exporta los requests guardados en formato nativo (JSON). Archivo portable entre instancias de api-testing-mcp.',
+    'Exporta los requests guardados en formato nativo (JSON) a .atm/. Carpeta portable — cópiala a otro proyecto para importar.',
     {
       tag: z.string().optional().describe('Filtrar requests por tag'),
       output_dir: z
         .string()
         .optional()
-        .describe('Directorio donde guardar el archivo (default: .api-testing/exports/)'),
-      name: z
-        .string()
-        .optional()
-        .describe('Nombre del archivo sin extensión (default: "collection")'),
+        .describe('Directorio donde guardar el archivo (default: .atm/)'),
     },
     async (params) => {
       try {
@@ -407,17 +405,17 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         }
 
         const json = JSON.stringify(bundle, null, 2)
-        const outputDir = params.output_dir ?? storage.exportsDir
+        const outputDir = params.output_dir ?? ATM_DIR
         await mkdir(outputDir, { recursive: true })
-        const fileName = (params.name ?? 'collection') + '.json'
-        const filePath = join(outputDir, fileName)
+        await ensureGitignore(outputDir)
+        const filePath = join(outputDir, 'collection.json')
         await writeFile(filePath, json, 'utf-8')
 
         return {
           content: [
             {
               type: 'text' as const,
-              text: `Colección exportada: ${savedRequests.length} requests.\n\nArchivo: ${filePath}\n\nUsa import_collection para importar este archivo en otra instancia.`,
+              text: `Colección exportada: ${savedRequests.length} requests → ${filePath}`,
             },
           ],
         }
@@ -435,9 +433,12 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   server.tool(
     'import_collection',
-    'Importa requests desde un archivo nativo de api-testing-mcp (exportado con export_collection).',
+    'Importa requests desde .atm/collection.json o un archivo específico. Auto-detecta .atm/ en el proyecto.',
     {
-      file: z.string().describe('Ruta al archivo .json exportado con export_collection'),
+      file: z
+        .string()
+        .optional()
+        .describe('Ruta al archivo (default: busca en .atm/collection.json)'),
       tag: z
         .string()
         .optional()
@@ -449,7 +450,21 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const raw = await readFile(params.file, 'utf-8')
+        // Auto-detect file
+        const filePath = await findFile(params.file, 'collection.json')
+        if (!filePath) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'No se encontró collection.json. Busqué en .atm/ y en el directorio actual.\nEspecifica la ruta con el parámetro "file".',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const raw = await readFile(filePath, 'utf-8')
         const bundle = JSON.parse(raw)
 
         if (bundle._format !== 'api-testing-mcp' || !Array.isArray(bundle.requests)) {
@@ -504,7 +519,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         }
 
         const lines: string[] = [
-          `Colección importada: ${imported} requests guardados.`,
+          `Colección importada: ${imported} requests guardados (desde ${filePath}).`,
         ]
         if (skipped > 0) lines.push(`${skipped} requests omitidos (ya existían, usa overwrite: true para sobreescribir).`)
         if (errors.length > 0) {
@@ -529,7 +544,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   server.tool(
     'export_environment',
-    'Exporta un entorno en formato nativo (JSON). Archivo portable entre instancias de api-testing-mcp.',
+    'Exporta un entorno en formato nativo (JSON) a .atm/. Carpeta portable — cópiala a otro proyecto para importar.',
     {
       name: z
         .string()
@@ -538,7 +553,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
       output_dir: z
         .string()
         .optional()
-        .describe('Directorio donde guardar el archivo (default: .api-testing/exports/)'),
+        .describe('Directorio donde guardar el archivo (default: .atm/)'),
     },
     async (params) => {
       try {
@@ -578,8 +593,9 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         }
 
         const json = JSON.stringify(bundle, null, 2)
-        const outputDir = params.output_dir ?? storage.exportsDir
+        const outputDir = params.output_dir ?? ATM_DIR
         await mkdir(outputDir, { recursive: true })
+        await ensureGitignore(outputDir)
         const fileName = env.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.env.json'
         const filePath = join(outputDir, fileName)
         await writeFile(filePath, json, 'utf-8')
@@ -588,7 +604,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
           content: [
             {
               type: 'text' as const,
-              text: `Entorno "${env.name}" exportado (${Object.keys(env.variables).length} variables).\n\nArchivo: ${filePath}\n\nUsa import_environment para importar este archivo en otra instancia.`,
+              text: `Entorno "${env.name}" exportado (${Object.keys(env.variables).length} variables) → ${filePath}`,
             },
           ],
         }
@@ -606,9 +622,12 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   server.tool(
     'import_environment',
-    'Importa un entorno desde un archivo nativo de api-testing-mcp (exportado con export_environment).',
+    'Importa un entorno desde .atm/ o un archivo específico. Auto-detecta archivos .env.json en .atm/.',
     {
-      file: z.string().describe('Ruta al archivo .env.json exportado con export_environment'),
+      file: z
+        .string()
+        .optional()
+        .describe('Ruta al archivo (default: busca *.env.json en .atm/)'),
       name: z
         .string()
         .optional()
@@ -624,59 +643,83 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
     },
     async (params) => {
       try {
-        const raw = await readFile(params.file, 'utf-8')
-        const bundle = JSON.parse(raw)
+        // Auto-detect: if no file, find all .env.json in .atm/
+        const filePaths: string[] = []
 
-        if (bundle._format !== 'api-testing-mcp' || !bundle.environment) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: El archivo no es un export nativo válido. Verifica que fue generado con export_environment.',
-              },
-            ],
-            isError: true,
+        if (params.file) {
+          filePaths.push(params.file)
+        } else {
+          // Search .atm/ for *.env.json files
+          const searchDirs = [ATM_DIR, process.cwd()]
+          for (const dir of searchDirs) {
+            try {
+              const entries = await readdir(dir)
+              for (const entry of entries) {
+                if (entry.endsWith('.env.json')) {
+                  filePaths.push(join(dir, entry))
+                }
+              }
+            } catch {
+              // Directory doesn't exist, skip
+            }
+            if (filePaths.length > 0) break
+          }
+
+          if (filePaths.length === 0) {
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: 'No se encontraron archivos .env.json. Busqué en .atm/ y en el directorio actual.\nEspecifica la ruta con el parámetro "file".',
+                },
+              ],
+              isError: true,
+            }
           }
         }
 
-        const env = bundle.environment as Environment
-        const envName = params.name ?? env.name
         const overwrite = params.overwrite ?? false
+        let totalImported = 0
+        const results: string[] = []
 
-        const existing = await storage.getEnvironment(envName)
-        if (existing && !overwrite) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Error: Ya existe un entorno '${envName}'. Usa overwrite: true para sobreescribir.`,
-              },
-            ],
-            isError: true,
+        for (const filePath of filePaths) {
+          const raw = await readFile(filePath, 'utf-8')
+          const bundle = JSON.parse(raw)
+
+          if (bundle._format !== 'api-testing-mcp' || !bundle.environment) {
+            results.push(`${filePath}: formato no válido, omitido.`)
+            continue
           }
+
+          const env = bundle.environment as Environment
+          const envName = params.name ?? env.name
+
+          const existing = await storage.getEnvironment(envName)
+          if (existing && !overwrite) {
+            results.push(`"${envName}": ya existe (usa overwrite: true para sobreescribir).`)
+            continue
+          }
+
+          const now = new Date().toISOString()
+          await storage.createEnvironment({
+            name: envName,
+            variables: env.variables,
+            spec: env.spec,
+            createdAt: now,
+            updatedAt: now,
+          })
+
+          if (params.activate) {
+            await storage.setActiveEnvironment(envName)
+          }
+
+          results.push(`"${envName}" importado (${Object.keys(env.variables).length} variables)${params.activate ? ' — activado' : ''}.`)
+          totalImported++
         }
-
-        const now = new Date().toISOString()
-        await storage.createEnvironment({
-          name: envName,
-          variables: env.variables,
-          spec: env.spec,
-          createdAt: now,
-          updatedAt: now,
-        })
-
-        if (params.activate) {
-          await storage.setActiveEnvironment(envName)
-        }
-
-        const lines: string[] = [
-          `Entorno "${envName}" importado (${Object.keys(env.variables).length} variables).`,
-        ]
-        if (env.spec) lines.push(`Spec asociado: ${env.spec}`)
-        if (params.activate) lines.push('Entorno activado como activo.')
 
         return {
-          content: [{ type: 'text' as const, text: lines.join('\n') }],
+          content: [{ type: 'text' as const, text: results.join('\n') }],
+          isError: totalImported === 0,
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -1068,6 +1111,49 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
       }
     },
   )
+}
+
+// ── Native export/import helpers ──
+
+/**
+ * Find a file by name: explicit path > .atm/ > cwd
+ */
+async function findFile(explicit: string | undefined, fileName: string): Promise<string | null> {
+  if (explicit) return explicit
+
+  const candidates = [
+    join(process.cwd(), '.atm', fileName),
+    join(process.cwd(), fileName),
+  ]
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate)
+      return candidate
+    } catch {
+      // Not found, try next
+    }
+  }
+
+  return null
+}
+
+/**
+ * Ensures .atm/ is listed in the project's .gitignore.
+ * Creates .gitignore if it doesn't exist.
+ */
+async function ensureGitignore(dir: string): Promise<void> {
+  const gitignorePath = join(dirname(dir), '.gitignore')
+  const entry = '.atm/'
+
+  try {
+    const content = await readFile(gitignorePath, 'utf-8')
+    if (content.split('\n').some((line) => line.trim() === entry)) return
+    await writeFile(gitignorePath, content.trimEnd() + '\n' + entry + '\n', 'utf-8')
+  } catch {
+    // .gitignore doesn't exist — create it
+    await writeFile(gitignorePath, entry + '\n', 'utf-8')
+  }
 }
 
 // ── Postman helpers ──

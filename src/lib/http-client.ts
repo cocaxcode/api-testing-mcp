@@ -60,8 +60,11 @@ export async function executeRequest(config: RequestConfig): Promise<RequestResp
   // Construir URL con query params
   const url = buildUrl(config.url, config.query)
 
-  // Preparar headers
-  let headers: Record<string, string> = { ...config.headers }
+  // Preparar headers — Accept: application/json por defecto
+  let headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...config.headers,
+  }
 
   // Aplicar auth
   if (config.auth) {

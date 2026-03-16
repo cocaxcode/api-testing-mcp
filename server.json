@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cocaxcode/api-testing-mcp",
+  "description": "MCP server for API testing. 35 tools: HTTP, assertions, flows, OpenAPI, collections.",
+  "repository": {
+    "url": "https://github.com/cocaxcode/api-testing-mcp",
+    "source": "github"
+  },
+  "version": "0.11.5",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@cocaxcode/api-testing-mcp",
+      "version": "0.11.5",
+      "runtime": "node",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

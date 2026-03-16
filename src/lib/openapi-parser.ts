@@ -115,6 +115,22 @@ export function parseOpenApiSpec(
   const components = doc.components as Record<string, unknown> | undefined
   const rawSchemas = (components?.schemas ?? {}) as Record<string, ApiSpecSchema>
 
+  // Extraer basePath de servers[].url (ej: "https://api.example.com/api/v1" → "/api/v1")
+  const servers = doc.servers as Array<Record<string, unknown>> | undefined
+  let basePath = ''
+  if (servers && servers.length > 0 && typeof servers[0].url === 'string') {
+    try {
+      const serverUrl = new URL(servers[0].url)
+      basePath = serverUrl.pathname.replace(/\/+$/, '') // quitar trailing slashes
+    } catch {
+      // Si no es una URL absoluta, podria ser un path relativo como "/api/v1"
+      const rawUrl = servers[0].url as string
+      if (rawUrl.startsWith('/')) {
+        basePath = rawUrl.replace(/\/+$/, '')
+      }
+    }
+  }
+
   // Resolve all schemas
   const schemas: Record<string, ApiSpecSchema> = {}
   for (const [schemaName, schema] of Object.entries(rawSchemas)) {
@@ -187,7 +203,7 @@ export function parseOpenApiSpec(
 
         endpoints.push({
           method: upperMethod,
-          path,
+          path: basePath ? `${basePath}${path}` : path,
           summary: op.summary as string | undefined,
           description: op.description as string | undefined,
           tags: op.tags as string[] | undefined,
@@ -205,6 +221,7 @@ export function parseOpenApiSpec(
     name,
     source,
     version: info?.version as string | undefined,
+    basePath: basePath || undefined,
     endpoints,
     schemas,
     importedAt: now,

@@ -121,6 +121,7 @@ export interface ApiSpec {
   name: string
   source: string
   version?: string
+  basePath?: string
   endpoints: ApiSpecEndpoint[]
   schemas: Record<string, ApiSpecSchema>
   importedAt: string

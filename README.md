@@ -52,7 +52,7 @@ There are other API testing MCP servers out there. Here's why this one is differ
 | Request flows with variable extraction | `flow_run` with `extract` | Not available |
 | Collections with tags and CRUD | Full CRUD + tag filtering | Basic or none |
 | Environments with variable interpolation | CRUD + project-scoped | Manual `set_env_vars` or none |
-| OpenAPI import with `$ref`, `allOf`, `oneOf`, `anyOf` | ~95% real-world coverage | Basic or none |
+| OpenAPI import (JSON & YAML) with `$ref`, `allOf`, `oneOf`, `anyOf` | ~95% real-world coverage | Basic or none |
 | Mock data generation from schemas | Types, formats, enums | Not available |
 | Load testing with percentiles | p50/p95/p99 + req/s | Basic or none |
 | Response diffing | Field-by-field comparison | Not available |
@@ -152,10 +152,11 @@ Once installed, set up an environment so the tool knows where your API lives:
 
 From here, relative paths work automatically. `/api/users` becomes `http://localhost:3000/api/users`.
 
-If your API has Swagger/OpenAPI, import the spec:
+If your API has Swagger/OpenAPI, import the spec (JSON or YAML):
 
 ```
 "Import my API spec from http://localhost:3000/api-docs-json"
+"Import the spec from ./openapi.yaml"
 ```
 
 Now the AI knows every endpoint, parameter, and schema in your API. You're ready to go.
@@ -329,15 +330,16 @@ flow_run({
 
 ### OpenAPI Import
 
-Import your Swagger/OpenAPI spec from a URL or local file. Once imported, the AI understands every endpoint, parameter, and schema — no guessing, no memorizing.
+Import your Swagger/OpenAPI spec from a URL or local file — **JSON or YAML**. Once imported, the AI understands every endpoint, parameter, and schema — no guessing, no memorizing.
 
 ```
 "Import my API spec from http://localhost:3000/api-docs-json"
+"Import the spec from ./openapi.yaml"
 "Show me all user endpoints"
 "What parameters does POST /users expect?"
 ```
 
-**Supports:** OpenAPI 3.x with full `$ref` resolution, `allOf` (schema merging), `oneOf`/`anyOf` (union types) — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) partially supported.
+**Supports:** OpenAPI 3.x (JSON & YAML) with full `$ref` resolution, `allOf` (schema merging), `oneOf`/`anyOf` (union types) — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) partially supported.
 
 ### Mock Data Generation
 
@@ -650,7 +652,7 @@ src/
 - **Auth**: Supports Bearer token, API Key, and Basic auth. OAuth 2.0 flows (authorization code, PKCE) are not supported — use a pre-obtained token instead.
 - **Protocols**: HTTP/HTTPS only. No WebSocket, gRPC, or GraphQL-specific support (though GraphQL over HTTP works fine).
 - **Load testing**: Recommended maximum of 100 concurrent requests. This is a testing tool, not a benchmarking framework.
-- **Specs**: OpenAPI 3.x with full support for `$ref`, `allOf`, `oneOf`, and `anyOf` — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) is partially supported. AsyncAPI is not supported.
+- **Specs**: OpenAPI 3.x (JSON & YAML) with full support for `$ref`, `allOf`, `oneOf`, and `anyOf` — covers ~95% of real-world API specs. OpenAPI 2.0 (Swagger) is partially supported. AsyncAPI is not supported.
 - **Storage**: Local JSON files only. No built-in cloud sync or team collaboration server.
 
 ---

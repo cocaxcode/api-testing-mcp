@@ -1,8 +1,21 @@
 import { z } from 'zod'
+import { parse as parseYaml } from 'yaml'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { parseOpenApiSpec } from '../lib/openapi-parser.js'
 import { readFile } from 'node:fs/promises'
+
+/**
+ * Parsea contenido que puede ser JSON o YAML.
+ * Intenta JSON primero (más rápido); si falla, intenta YAML.
+ */
+function parseJsonOrYaml(content: string): Record<string, unknown> {
+  try {
+    return JSON.parse(content) as Record<string, unknown>
+  } catch {
+    return parseYaml(content) as Record<string, unknown>
+  }
+}
 
 /**
  * Resuelve el nombre del spec a usar:
@@ -39,7 +52,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
 
   server.tool(
     'api_import',
-    'Importa un spec OpenAPI/Swagger desde una URL o archivo local. Guarda los endpoints y schemas para consulta.',
+    'Importa un spec OpenAPI/Swagger desde una URL o archivo local (JSON o YAML). Guarda los endpoints y schemas para consulta.',
     {
       name: z
         .string()
@@ -47,7 +60,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
       source: z
         .string()
         .describe(
-          'URL del spec OpenAPI JSON (ej: http://localhost:3001/api-docs-json) o ruta a archivo local',
+          'URL o ruta a archivo local del spec OpenAPI (JSON o YAML, ej: http://localhost:3001/api-docs-json, ./openapi.yaml)',
         ),
     },
     async (params) => {
@@ -72,7 +85,8 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
                 isError: true,
               }
             }
-            rawDoc = (await response.json()) as Record<string, unknown>
+            const text = await response.text()
+            rawDoc = parseJsonOrYaml(text)
           } finally {
             clearTimeout(timeout)
           }
@@ -80,13 +94,13 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
           // Read from local file
           try {
             const content = await readFile(params.source, 'utf-8')
-            rawDoc = JSON.parse(content) as Record<string, unknown>
+            rawDoc = parseJsonOrYaml(content)
           } catch {
             return {
               content: [
                 {
                   type: 'text' as const,
-                  text: `Error: No se pudo leer el archivo '${params.source}'. Verifica que existe y es JSON válido.`,
+                  text: `Error: No se pudo leer el archivo '${params.source}'. Verifica que existe y es JSON o YAML válido.`,
                 },
               ],
               isError: true,

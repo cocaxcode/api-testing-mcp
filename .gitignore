@@ -8,3 +8,4 @@ coverage/
 .claude/
 .github/
 api-spec*.json
+.database-mcp/

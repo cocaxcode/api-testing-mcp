@@ -77,7 +77,7 @@ Most API testing MCPs either (a) generate test code for external frameworks (Pla
 ### Claude Code
 
 ```bash
-claude mcp add api-testing -- npx -y @cocaxcode/api-testing-mcp@latest
+claude mcp add --scope user api-testing -- npx -y @cocaxcode/api-testing-mcp@latest
 ```
 
 ### Claude Desktop

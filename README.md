@@ -356,8 +356,7 @@ your-project/
     └── dev.env.json
 ```
 
-> [!NOTE]
-> `.atm/` is automatically added to `.gitignore` on first export.
+> **Note:** `.atm/` is automatically added to `.gitignore` on first export.
 
 ### cURL Export
 
@@ -392,8 +391,7 @@ curl -X POST \
 | **Mock** | `mock` | 1 |
 | **Utilities** | `load_test`, `export_curl`, `diff_responses`, `bulk_test`, `export_collection`, `import_collection`, `export_environment`, `import_environment`, `export_postman_collection`, `import_postman_collection`, `export_postman_environment`, `import_postman_environment` | 12 |
 
-> [!TIP]
-> You don't need to call tools directly. Describe what you want and the AI picks the right one.
+> **Tip:** You don't need to call tools directly. Describe what you want and the AI picks the right one.
 
 ---
 
@@ -420,8 +418,7 @@ Override the default storage path:
 }
 ```
 
-> [!WARNING]
-> If you override `API_TESTING_DIR` to a path inside a git repository, add `.api-testing/` to your `.gitignore` to avoid pushing credentials.
+> **Warning:** If you override `API_TESTING_DIR` to a path inside a git repository, add `.api-testing/` to your `.gitignore` to avoid pushing credentials.
 
 ---
 

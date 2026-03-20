@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
-    <strong>Your AI already knows how to test APIs. Give it the tools.</strong><br/>
+    <strong>The most complete MCP server for API testing. Period.</strong><br/>
     35 MCP tools &middot; Zero config &middot; Works in any MCP client
   </p>
 </p>
@@ -29,7 +29,7 @@
 
 ## Quick Overview
 
-An [MCP server](https://modelcontextprotocol.io) that turns your AI assistant into a full API testing workbench. Send requests, write assertions, chain flows, import OpenAPI specs, generate mock data, load test, diff responses, manage collections and environments — all from natural conversation. No accounts, no frameworks, no generated files. Everything executes inline and stores as plain JSON you can commit to git.
+The most complete [MCP server](https://modelcontextprotocol.io) for API testing — 35 tools, zero config, nothing else comes close. This is not just a request sender. It is a full testing workbench: HTTP requests with assertions, multi-step flows with variable extraction, OpenAPI import with schema-aware mock data, load testing with percentile metrics, response diffing across environments, bulk test runners, reusable collections, project-scoped environments, Postman import/export, and cURL export. All from natural conversation. No accounts, no cloud, no generated files. Everything runs inline and stores as plain JSON you own.
 
 ---
 
@@ -302,16 +302,23 @@ Save requests for reuse with tags. Build regression suites.
 
 ### Environments
 
-Manage variables across dev/staging/prod and switch instantly. Project-scoped environments let different projects use different active environments simultaneously.
+Environments hold your variables — `BASE_URL`, tokens, API keys, passwords — and keep them separated by context. Create `dev`, `staging`, and `prod` once, then switch between them in a single command. No restart, no config reload.
+
+**Global vs project-scoped.** Every environment you create is global by default: available from any project, any conversation. But each project can pin its own active environment independently. If project A is pointing at `dev` and you switch to project B, it can be pointing at `prod` — without touching anything. When you switch back to A, it is still on `dev`. The resolution is simple: project-specific override wins, then global active.
+
+**Your credentials never leave your machine.** Environment files are plain JSON stored in `~/.api-testing/environments/`. Nothing syncs to any cloud. Nothing gets embedded in exports. Nothing gets tracked by git. Your tokens and secrets stay exactly where they should: on your disk, under your control.
+
+**Automatic interpolation.** Any `{{variable}}` in URLs, headers, query params, or request bodies is resolved against the active environment before the request fires. Set `BASE_URL` once and every relative path just works.
 
 ```
-"Create an environment called github with BASE_URL https://api.github.com"
-"Set GITHUB_TOKEN in the github environment"
-"Switch to github"
-"Get my repos"
+"Create an environment called dev with BASE_URL http://localhost:3000 and AUTH_TOKEN my-secret"
+"Create another called prod with BASE_URL https://api.example.com"
+"Switch to dev"
+"GET /users"                        ← hits localhost:3000/users with AUTH_TOKEN resolved
+"Switch to prod"
+"GET /users"                        ← hits api.example.com/users
+"Pin this project to dev"           ← this project always uses dev, regardless of global
 ```
-
-Resolution order: project-specific environment > global active environment.
 
 ### Postman Import & Export
 
@@ -397,18 +404,18 @@ curl -X POST \
 
 ## Storage
 
-All data lives in `~/.api-testing/` as plain JSON files — no database, no cloud sync.
+Everything is local. No database, no cloud sync, no telemetry. All data lives in `~/.api-testing/` as plain JSON files you can read, back up, or delete at any time.
 
 ```
 ~/.api-testing/
 ├── active-env                # Global active environment name
-├── project-envs.json         # Per-project active environments
-├── collections/              # Saved requests
-├── environments/             # Environment variables (dev, prod, ...)
+├── project-envs.json         # Per-project active environment overrides
+├── collections/              # Saved requests (shareable, no secrets)
+├── environments/             # Environment variables — tokens, keys, passwords
 └── specs/                    # Imported OpenAPI specs
 ```
 
-Exports go to `.atm/` in your project root (portable, auto-gitignored).
+**Global storage vs project exports.** The `~/.api-testing/` directory is your private, global store — this is where credentials live and they never leave. When you export a collection or environment, it goes to `.atm/` in your project root. That folder is auto-added to `.gitignore` on first export, but even if you choose to commit it, your credentials stay in `~/.api-testing/` and are never copied into `.atm/`. You can safely share `.atm/` exports with your team without leaking secrets.
 
 Override the default storage path:
 

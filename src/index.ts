@@ -6,6 +6,19 @@ async function main() {
   const transport = new StdioServerTransport()
   await server.connect(transport)
   console.error('api-testing-mcp server running on stdio')
+
+  const shutdown = async () => {
+    console.error('api-testing-mcp: shutting down...')
+    try {
+      await server.close()
+    } catch {
+      // Ignorar errores de cierre
+    }
+    process.exit(0)
+  }
+
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
 
 main().catch((error) => {

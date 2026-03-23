@@ -10,18 +10,35 @@ import { registerUtilityTools } from './tools/utilities.js'
 import { registerMockTool } from './tools/mock.js'
 import { registerLoadTestTool } from './tools/load-test.js'
 
-// Leer version del package.json en build time no es posible con ESM fácilmente,
-// así que la definimos como constante sincronizada manualmente.
-const VERSION = '0.11.2'
+declare const __PKG_VERSION__: string
+const VERSION = typeof __PKG_VERSION__ !== 'undefined' ? __PKG_VERSION__ : '0.0.0'
 
 /**
  * Crea y configura el MCP server con todos los tools registrados.
  * Exportada como factory para testabilidad con InMemoryTransport.
  */
+const INSTRUCTIONS = `api-testing-mcp permite probar APIs HTTP directamente desde tu asistente AI.
+
+FLUJO TÍPICO:
+1. Importa un spec OpenAPI con api_import, o haz requests directos con request.
+2. Guarda requests frecuentes en la colección con collection_save.
+3. Usa entornos (env_create/env_switch) para manejar variables como BASE_URL, tokens, etc.
+4. Valida respuestas con assert (status, body, headers, timing).
+5. Encadena requests con flow_run para flujos multi-paso (login → crear → verificar).
+
+COMPORTAMIENTO:
+- URLs que empiezan con / auto-prepend BASE_URL del entorno activo.
+- {{variables}} se resuelven desde el entorno activo.
+- collection_save sobreescribe si ya existe un request con el mismo nombre.
+- load_test lanza requests concurrentes (max 100) y mide percentiles.
+- mock genera datos fake basándose en el spec OpenAPI importado.`
+
 export function createServer(storageDir?: string): McpServer {
   const server = new McpServer({
     name: 'api-testing-mcp',
     version: VERSION,
+  }, {
+    instructions: INSTRUCTIONS,
   })
 
   const storage = new Storage(storageDir)

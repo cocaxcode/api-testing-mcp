@@ -1,0 +1,13 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      apiTestingDir:
+        type: string
+        description: Directory for storing API testing data (collections, environments).
+  commandFunction:
+    |-
+      (config) => ({ command: 'npx', args: ['-y', '@cocaxcode/api-testing-mcp'], env: config.apiTestingDir ? { API_TESTING_DIR: config.apiTestingDir } : {} })

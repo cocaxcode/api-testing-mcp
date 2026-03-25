@@ -6,12 +6,12 @@
     "url": "https://github.com/cocaxcode/api-testing-mcp",
     "source": "github"
   },
-  "version": "0.11.5",
+  "version": "0.11.12",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@cocaxcode/api-testing-mcp",
-      "version": "0.11.5",
+      "version": "0.11.12",
       "runtime": "node",
       "transport": {
         "type": "stdio"

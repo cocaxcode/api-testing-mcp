@@ -2,6 +2,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createServer } from './server.js'
 
 async function main() {
+  // Limpiar activos de sesión al arrancar — cada sesión empieza con los defaults
+  const { clearSessionActives } = await import('./lib/storage.js')
+  await clearSessionActives()
+
   const server = createServer()
   const transport = new StdioServerTransport()
   await server.connect(transport)

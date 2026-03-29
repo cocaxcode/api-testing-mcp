@@ -2,15 +2,15 @@
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
     <strong>The most complete MCP server for API testing. Period.</strong><br/>
-    35 MCP tools &middot; Zero config &middot; Works in any MCP client
+    42 MCP tools &middot; Zero config &middot; Works in any MCP client
   </p>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/v/@cocaxcode/api-testing-mcp.svg?style=flat-square&color=cb3837" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
-  <img src="https://img.shields.io/badge/tools-35-blueviolet?style=flat-square" alt="35 tools" />
-  <img src="https://img.shields.io/badge/tests-110+-brightgreen?style=flat-square" alt="110+ tests" />
+  <img src="https://img.shields.io/badge/tools-42-blueviolet?style=flat-square" alt="42 tools" />
+  <img src="https://img.shields.io/badge/tests-120+-brightgreen?style=flat-square" alt="120+ tests" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
 </p>
@@ -29,7 +29,7 @@
 
 ## Quick Overview
 
-The most complete [MCP server](https://modelcontextprotocol.io) for API testing — 35 tools, zero config, nothing else comes close. This is not just a request sender. It is a full testing workbench: HTTP requests with assertions, multi-step flows with variable extraction, OpenAPI import with schema-aware mock data, load testing with percentile metrics, response diffing across environments, bulk test runners, reusable collections, project-scoped environments, Postman import/export, and cURL export. All from natural conversation. No accounts, no cloud, no generated files. Everything runs inline and stores as plain JSON you own.
+The most complete [MCP server](https://modelcontextprotocol.io) for API testing — 42 tools, zero config, nothing else comes close. This is not just a request sender. It is a full testing workbench: HTTP requests with assertions, multi-step flows with variable extraction, OpenAPI import with schema-aware mock data, load testing with percentile metrics, response diffing across environments, bulk test runners, reusable collections, environment groups with directory scoping and persistent defaults, Postman import/export, and cURL export. All from natural conversation. No accounts, no cloud, no generated files. Everything runs inline and stores as plain JSON you own.
 
 ---
 
@@ -38,7 +38,10 @@ The most complete [MCP server](https://modelcontextprotocol.io) for API testing 
 You don't need to learn tool names or parameters. Describe what you want and the AI picks the right tool.
 
 ```
-"Set up an environment called dev with BASE_URL http://localhost:3000"
+"Create a group called my-project and add this directory as scope"
+"Set up a dev environment with BASE_URL http://localhost:3000"
+"Switch to prod for this session"
+"Set dev as the default environment"
 "Import my API spec from /api-docs-json"
 "Show me all user endpoints"
 "GET /users"
@@ -302,23 +305,31 @@ Save requests for reuse with tags. Build regression suites.
 
 ### Environments
 
-Environments hold your variables — `BASE_URL`, tokens, API keys, passwords — and keep them separated by context. Create `dev`, `staging`, and `prod` once, then switch between them in a single command. No restart, no config reload.
+Environments hold your variables — `BASE_URL`, tokens, API keys — and keep them separated by context. The system has three core concepts:
 
-**Global vs project-scoped.** Every environment you create is global by default: available from any project, any conversation. But each project can pin its own active environment independently. If project A is pointing at `dev` and you switch to project B, it can be pointing at `prod` — without touching anything. When you switch back to A, it is still on `dev`. The resolution is simple: project-specific override wins, then global active.
+**Group.** A group organizes environments and binds them to directories. A group has N scopes (directories) that share its environments, and exactly one default environment. When you create an environment inside a group, it belongs to that group. When you `cd` into a directory that is a scope of a group, its environments become available automatically.
 
-**Your credentials never leave your machine.** Environment files are plain JSON stored in `~/.api-testing/environments/`. Nothing syncs to any cloud. Nothing gets embedded in exports. Nothing gets tracked by git. Your tokens and secrets stay exactly where they should: on your disk, under your control.
+**Default.** The default environment activates automatically when you enter a scope of its group. It persists between sessions — restart your editor, reopen your terminal, and the default is still there. Set it once and forget about it.
+
+**Active.** The active environment is what is being used right now for variable resolution. It starts as the default when you enter a scope, but you can switch it at any time. The active selection is session-only — it resets to the default on restart.
+
+Global environments (not associated with any group) still exist. They require explicit activation with `env_switch` and do not persist between sessions.
+
+**Practical example:**
+
+```
+"Create a group called my-api"
+"Add this directory as scope to my-api"
+"Create a dev environment with BASE_URL http://localhost:3000"   <- auto-joins group, auto-default
+"Create a prod environment with BASE_URL https://api.example.com"
+"List environments"                                              <- shows dev (active, default) and prod
+"Switch to prod"                                                 <- session only
+"Set prod as default"                                            <- persists
+```
 
 **Automatic interpolation.** Any `{{variable}}` in URLs, headers, query params, or request bodies is resolved against the active environment before the request fires. Set `BASE_URL` once and every relative path just works.
 
-```
-"Create an environment called dev with BASE_URL http://localhost:3000 and AUTH_TOKEN my-secret"
-"Create another called prod with BASE_URL https://api.example.com"
-"Switch to dev"
-"GET /users"                        ← hits localhost:3000/users with AUTH_TOKEN resolved
-"Switch to prod"
-"GET /users"                        ← hits api.example.com/users
-"Pin this project to dev"           ← this project always uses dev, regardless of global
-```
+**Your credentials never leave your machine.** Environment files are plain JSON stored in `~/.api-testing/`. Nothing syncs to any cloud. Nothing gets embedded in exports. Nothing gets tracked by git. Your tokens and secrets stay exactly where they should: on your disk, under your control.
 
 ### Postman Import & Export
 
@@ -385,7 +396,7 @@ curl -X POST \
 
 ## Tool Reference
 
-35 tools across 8 categories:
+42 tools across 9 categories:
 
 | Category | Tools | Count |
 |----------|-------|:-----:|
@@ -393,7 +404,8 @@ curl -X POST \
 | **Testing** | `assert` | 1 |
 | **Flows** | `flow_run` | 1 |
 | **Collections** | `collection_save`, `collection_list`, `collection_get`, `collection_delete` | 4 |
-| **Environments** | `env_create`, `env_list`, `env_set`, `env_get`, `env_switch`, `env_rename`, `env_delete`, `env_spec`, `env_project_clear`, `env_project_list` | 10 |
+| **Environments** | `env_create`, `env_list`, `env_set`, `env_get`, `env_switch`, `env_rename`, `env_delete`, `env_spec` | 8 |
+| **Groups** | `env_group_create`, `env_group_list`, `env_group_delete`, `env_group_add_scope`, `env_group_remove_scope`, `env_set_default`, `env_set_group` | 7 |
 | **API Specs** | `api_import`, `api_spec_list`, `api_endpoints`, `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
 | **Utilities** | `load_test`, `export_curl`, `diff_responses`, `bulk_test`, `export_collection`, `import_collection`, `export_environment`, `import_environment`, `export_postman_collection`, `import_postman_collection`, `export_postman_environment`, `import_postman_environment` | 12 |
@@ -408,11 +420,11 @@ Everything is local. No database, no cloud sync, no telemetry. All data lives in
 
 ```
 ~/.api-testing/
-├── active-env                # Global active environment name
-├── project-envs.json         # Per-project active environment overrides
-├── collections/              # Saved requests (shareable, no secrets)
-├── environments/             # Environment variables — tokens, keys, passwords
-└── specs/                    # Imported OpenAPI specs
+├── groups/               # Environment groups with scopes and defaults
+├── environments/         # Environment variables — tokens, keys, passwords
+├── collections/          # Saved requests (shareable, no secrets)
+├── specs/                # Imported OpenAPI specs
+└── project-envs.json     # Session-only active environments (cleared on restart)
 ```
 
 **Global storage vs project exports.** The `~/.api-testing/` directory is your private, global store — this is where credentials live and they never leave. When you export a collection or environment, it goes to `.atm/` in your project root. That folder is auto-added to `.gitignore` on first export, but even if you choose to commit it, your credentials stay in `~/.api-testing/` and are never copied into `.atm/`. You can safely share `.atm/` exports with your team without leaking secrets.
@@ -435,12 +447,13 @@ Override the default storage path:
 src/
 ├── index.ts              # Entry point (shebang + StdioServerTransport)
 ├── server.ts             # createServer() factory
-├── tools/                # 35 tool handlers (one file per category)
+├── tools/                # 42 tool handlers (one file per category)
 │   ├── request.ts        # HTTP requests (1)
 │   ├── assert.ts         # Assertions (1)
 │   ├── flow.ts           # Request chaining (1)
 │   ├── collection.ts     # Collection CRUD (4)
-│   ├── environment.ts    # Environment management (10)
+│   ├── environment.ts    # Environment management (8)
+│   ├── group.ts          # Environment groups (7)
 │   ├── api-spec.ts       # OpenAPI import/browse (4)
 │   ├── mock.ts           # Mock data generation (1)
 │   ├── load-test.ts      # Load testing (1)
@@ -453,7 +466,7 @@ src/
 │   ├── path.ts           # Dot-notation accessor (body.data.0.id)
 │   ├── interpolation.ts  # {{variable}} resolver
 │   └── openapi-parser.ts # $ref + allOf/oneOf/anyOf resolution
-└── __tests__/            # 10 test suites, 110+ tests
+└── __tests__/            # 10+ test suites, 120+ tests
 ```
 
 **Stack:** TypeScript (strict) · MCP SDK · Zod · Vitest · tsup

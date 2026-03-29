@@ -26,6 +26,15 @@ FLUJO TÍPICO:
 4. Valida respuestas con assert (status, body, headers, timing).
 5. Encadena requests con flow_run para flujos multi-paso (login → crear → verificar).
 
+GRUPOS Y ENTORNOS:
+- Los entornos pueden pertenecer a un GRUPO (ej: "cocaxcode", "optimizatusol").
+- Un grupo tiene N scopes (directorios) que comparten sus entornos.
+- env_list filtra automaticamente: si el CWD esta en un scope de un grupo, solo muestra entornos de ese grupo.
+- Cada grupo tiene un entorno DEFAULT (persiste entre sesiones) y un ACTIVE (de sesion).
+- Al crear un entorno: PREGUNTA al usuario nombre, grupo (o global) y variables.
+- env_switch cambia el active de sesion (no persiste). env_set_default cambia el default (persiste).
+- Entornos globales (sin grupo) solo se activan con env_switch explicito.
+
 COMPORTAMIENTO:
 - URLs que empiezan con / auto-prepend BASE_URL del entorno activo.
 - {{variables}} se resuelven desde el entorno activo.

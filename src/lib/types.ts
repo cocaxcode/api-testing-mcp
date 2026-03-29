@@ -62,6 +62,8 @@ export interface Environment {
   variables: Record<string, string>
   /** Nombre del spec API asociado a este entorno */
   spec?: string
+  /** Grupo al que pertenece (undefined = global) */
+  group?: string
   createdAt: string
   updatedAt: string
 }
@@ -69,8 +71,20 @@ export interface Environment {
 export interface EnvironmentListItem {
   name: string
   active: boolean
+  default: boolean
+  group?: string
   variableCount: number
   spec?: string
+}
+
+// ── Environment Group ──
+
+export interface EnvironmentGroup {
+  name: string
+  scopes: string[]
+  default?: string
+  createdAt: string
+  updatedAt: string
 }
 
 // ── API Spec (OpenAPI) ──

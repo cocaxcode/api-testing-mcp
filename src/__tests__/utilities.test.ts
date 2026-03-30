@@ -966,7 +966,7 @@ describe('utility tools', () => {
 
     const envResult = await ctx.client.callTool({
       name: 'env_get',
-      arguments: { environment: 'current-val-test' },
+      arguments: { environment: 'current-val-test', key: 'API_KEY' },
     })
     const text = (envResult.content as Array<{ type: string; text: string }>)[0].text
     expect(text).toContain('current-secret')

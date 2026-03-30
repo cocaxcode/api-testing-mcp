@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { Storage } from '../lib/storage.js'
+import { maskVariables, type Storage } from '../lib/storage.js'
 import type { Environment } from '../lib/types.js'
 
 export function registerEnvironmentTools(server: McpServer, storage: Storage): void {
@@ -169,7 +169,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
   // ── env_get ──
   server.tool(
     'env_get',
-    'Obtiene una variable específica o todas las variables de un entorno.',
+    'Obtiene una variable específica o todas las variables de un entorno. Los valores sensibles (token, password, secret, api_key...) se enmascaran por defecto. Pide una variable por nombre para ver su valor completo.',
     {
       key: z
         .string()
@@ -206,6 +206,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
           }
         }
 
+        // Variable específica: mostrar valor completo (sin enmascarar)
         if (params.key) {
           const value = env.variables[params.key]
           if (value === undefined) {
@@ -229,12 +230,13 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
           }
         }
 
+        // Todas las variables: enmascarar sensibles
         return {
           content: [
             {
               type: 'text' as const,
               text: JSON.stringify(
-                { environment: envName, variables: env.variables },
+                { environment: envName, variables: maskVariables(env.variables) },
                 null,
                 2,
               ),

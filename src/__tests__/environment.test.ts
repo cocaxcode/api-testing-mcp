@@ -84,7 +84,7 @@ describe('environment tools', () => {
     const data = JSON.parse(text)
     expect(data.environment).toBe('dev')
     expect(data.variables.BASE_URL).toBe('http://localhost:3000')
-    expect(data.variables.TOKEN).toBe('secret123')
+    expect(data.variables.TOKEN).toBe('***')
   })
 
   it('env_set en entorno no existente retorna error', async () => {

@@ -11,6 +11,30 @@ import type {
   ApiSpecListItem,
 } from './types.js'
 
+const SENSITIVE_PATTERNS =
+  /^(token|password|passwd|secret|api_key|apikey|api[-_]?secret|auth|credential|pat|app_password|access_token|refresh_token)$/i
+
+/** Enmascara un valor si el nombre de la variable indica que es sensible */
+export function maskSensitiveValue(
+  key: string,
+  value: string,
+): string {
+  if (!SENSITIVE_PATTERNS.test(key)) return value
+  if (value.length <= 12) return '***'
+  return `${value.slice(0, 4)}...${value.slice(-4)}`
+}
+
+/** Enmascara todas las variables sensibles de un objeto */
+export function maskVariables(
+  variables: Record<string, string>,
+): Record<string, string> {
+  const masked: Record<string, string> = {}
+  for (const [key, value] of Object.entries(variables)) {
+    masked[key] = maskSensitiveValue(key, value)
+  }
+  return masked
+}
+
 /** Limpia los activos de sesión al arrancar el server */
 export async function clearSessionActives(): Promise<void> {
   const baseDir = process.env.API_TESTING_DIR ?? join(homedir(), '.api-testing')

@@ -1,11 +1,16 @@
 {
   "name": "@cocaxcode/api-testing-mcp",
-  "version": "0.12.7",
+  "version": "0.12.9",
   "mcpName": "io.github.cocaxcode/api-testing-mcp",
   "description": "The most complete MCP server for API testing. 35 tools: HTTP requests, assertions, request flows, OpenAPI import, mock data, load testing, collections, environments, native export/import, Postman import/export, cURL export, response diffing. Zero config, zero dependencies.",
   "type": "module",
   "bin": {
     "api-testing-mcp": "dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./dist/server.js",
+    "./dist/server.js": "./dist/server.js"
   },
   "files": [
     "dist"

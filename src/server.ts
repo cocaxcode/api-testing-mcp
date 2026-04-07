@@ -42,7 +42,7 @@ COMPORTAMIENTO:
 - load_test lanza requests concurrentes (max 100) y mide percentiles.
 - mock genera datos fake basándose en el spec OpenAPI importado.`
 
-export function createServer(storageDir?: string): McpServer {
+export async function createServer(storageDir?: string): Promise<McpServer> {
   const server = new McpServer({
     name: 'api-testing-mcp',
     version: VERSION,
@@ -51,6 +51,9 @@ export function createServer(storageDir?: string): McpServer {
   })
 
   const storage = new Storage(storageDir)
+
+  // Limpiar activos de sesión al arrancar — cada sesión empieza con los defaults
+  await storage.clearSessionActives()
 
   // Registrar tools
   registerRequestTool(server, storage)

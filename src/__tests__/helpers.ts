@@ -17,7 +17,7 @@ export interface TestContext {
  */
 export async function createTestClient(): Promise<TestContext> {
   const tempDir = await mkdtemp(join(tmpdir(), 'api-testing-'))
-  const server = createServer(tempDir)
+  const server = await createServer(tempDir)
 
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
 

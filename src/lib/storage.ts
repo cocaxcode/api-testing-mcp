@@ -35,7 +35,7 @@ export function maskVariables(
   return masked
 }
 
-/** Limpia los activos de sesión al arrancar el server */
+/** @deprecated Usa Storage.clearSessionActives() en su lugar */
 export async function clearSessionActives(): Promise<void> {
   const baseDir = process.env.API_TESTING_DIR ?? join(homedir(), '.api-testing')
   const projectEnvsFile = join(baseDir, 'project-envs.json')
@@ -61,6 +61,15 @@ export class Storage {
     this.specsDir = join(this.baseDir, 'specs')
     this.groupsDir = join(this.baseDir, 'groups')
     this.projectEnvsFile = join(this.baseDir, 'project-envs.json')
+  }
+
+  /** Limpia los activos de sesión (project-envs.json) para que los defaults tomen efecto */
+  async clearSessionActives(): Promise<void> {
+    try {
+      await unlink(this.projectEnvsFile)
+    } catch {
+      // No existe, ok
+    }
   }
 
   // ── Collections ──

@@ -51,7 +51,6 @@ export class Storage {
   private readonly collectionsDir: string
   private readonly environmentsDir: string
   private readonly specsDir: string
-  private readonly activeEnvFile: string
   private readonly projectEnvsFile: string
   private readonly groupsDir: string
 
@@ -61,7 +60,6 @@ export class Storage {
     this.environmentsDir = join(this.baseDir, 'environments')
     this.specsDir = join(this.baseDir, 'specs')
     this.groupsDir = join(this.baseDir, 'groups')
-    this.activeEnvFile = join(this.baseDir, 'active-env')
     this.projectEnvsFile = join(this.baseDir, 'project-envs.json')
   }
 
@@ -165,18 +163,25 @@ export class Storage {
   }
 
   async getActiveEnvironment(project?: string): Promise<string | null> {
-    const projectPath = project ?? process.cwd()
+    const projectPath = (project ?? process.cwd()).replace(/\\/g, '/')
     const group = await this.getGroupForPath(projectPath)
 
     // 1. Activo de sesión (project-envs.json) — solo si pertenece al grupo del CWD
     const projectEnvs = await this.getProjectEnvs()
-    const sessionEnv = projectEnvs[projectPath]
+    // Buscar con path normalizado (forward slashes)
+    let sessionEnv: string | undefined
+    for (const [key, val] of Object.entries(projectEnvs)) {
+      if (key.replace(/\\/g, '/') === projectPath) {
+        sessionEnv = val
+        break
+      }
+    }
     if (sessionEnv) {
       const env = await this.getEnvironment(sessionEnv)
       if (env) {
-        // Si el CWD está en un grupo, solo aceptar el activo si es del mismo grupo
-        if (group && env.group !== group.name) {
-          // El activo guardado es de otro grupo o global — ignorar
+        // Si el CWD está en un grupo, solo aceptar el activo si es del mismo grupo o global
+        if (group && env.group && env.group !== group.name) {
+          // El activo guardado es de otro grupo — ignorar
         } else {
           return sessionEnv
         }
@@ -200,7 +205,7 @@ export class Storage {
     }
 
     // Siempre guardar como activo de sesión (project-envs.json)
-    const projectPath = project ?? process.cwd()
+    const projectPath = (project ?? process.cwd()).replace(/\\/g, '/')
     const projectEnvs = await this.getProjectEnvs()
     projectEnvs[projectPath] = name
     await this.ensureDir('')
@@ -209,10 +214,38 @@ export class Storage {
 
   async clearProjectEnvironment(project: string): Promise<boolean> {
     const projectEnvs = await this.getProjectEnvs()
-    if (!(project in projectEnvs)) return false
-    delete projectEnvs[project]
+    const normalized = project.replace(/\\/g, '/')
+    // Try exact match first, then normalized match
+    let found = false
+    for (const key of Object.keys(projectEnvs)) {
+      if (key === project || key.replace(/\\/g, '/') === normalized) {
+        delete projectEnvs[key]
+        found = true
+      }
+    }
+    if (!found) return false
     await this.writeJson(this.projectEnvsFile, projectEnvs)
     return true
+  }
+
+  async clearGroupSessionActives(groupName: string): Promise<void> {
+    const group = await this.getGroup(groupName)
+    if (!group) return
+    const projectEnvs = await this.getProjectEnvs()
+    let changed = false
+    for (const key of Object.keys(projectEnvs)) {
+      const normalized = key.replace(/\\/g, '/')
+      for (const scope of group.scopes) {
+        if (normalized === scope || normalized.startsWith(scope + '/')) {
+          delete projectEnvs[key]
+          changed = true
+          break
+        }
+      }
+    }
+    if (changed) {
+      await this.writeJson(this.projectEnvsFile, projectEnvs)
+    }
   }
 
   async listProjectEnvironments(): Promise<Record<string, string>> {
@@ -282,16 +315,6 @@ export class Storage {
     await this.createEnvironment(env)
     await unlink(join(this.environmentsDir, `${this.sanitizeName(oldName)}.json`))
 
-    // Actualizar active-env global
-    try {
-      const globalActive = await readFile(this.activeEnvFile, 'utf-8')
-      if (globalActive.trim() === oldName) {
-        await writeFile(this.activeEnvFile, newName, 'utf-8')
-      }
-    } catch {
-      // No hay active-env global
-    }
-
     // Actualizar project-envs
     const projectEnvs = await this.getProjectEnvs()
     let changed = false
@@ -323,16 +346,6 @@ export class Storage {
     }
 
     await unlink(join(this.environmentsDir, `${this.sanitizeName(name)}.json`))
-
-    // Limpiar active-env global
-    try {
-      const globalActive = await readFile(this.activeEnvFile, 'utf-8')
-      if (globalActive.trim() === name) {
-        await unlink(this.activeEnvFile)
-      }
-    } catch {
-      // No hay active-env global
-    }
 
     // Limpiar project-envs
     const projectEnvs = await this.getProjectEnvs()

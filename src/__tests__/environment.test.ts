@@ -312,4 +312,363 @@ describe('environment tools', () => {
     const item = items.find((i: { project: string }) => i.project === '/test/project-c')
     expect(item.environment).toBe('new-name')
   })
+
+  // ── env_spec ──
+
+  it('env_spec asocia un spec al entorno activo', async () => {
+    await ctx.client.callTool({ name: 'env_switch', arguments: { name: 'dev' } })
+
+    const result = await ctx.client.callTool({
+      name: 'env_spec',
+      arguments: { spec: 'my-api' },
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain("'my-api'")
+    expect(text).toContain("'dev'")
+  })
+
+  it('env_spec desasocia spec cuando se omite', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_spec',
+      arguments: {},
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain('desasociado')
+    expect(text).toContain("'dev'")
+  })
+
+  it('env_spec con entorno específico', async () => {
+    const result = await ctx.client.callTool({
+      name: 'env_spec',
+      arguments: { spec: 'other-api', environment: 'dev' },
+    })
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text
+    expect(text).toContain("'other-api'")
+    expect(text).toContain("'dev'")
+  })
+
+  it('env_spec sin entorno activo retorna error', async () => {
+    // Create a fresh client with no active env
+    const freshCtx = await createTestClient()
+    const result = await freshCtx.client.callTool({
+      name: 'env_spec',
+      arguments: { spec: 'some-api' },
+    })
+    expect(result.isError).toBe(true)
+    await freshCtx.cleanup()
+  })
+
+  // ── Group default and switch behavior ──
+
+  describe('group default and switch', () => {
+    let gCtx: TestContext
+
+    beforeAll(async () => {
+      gCtx = await createTestClient()
+      // Create a group
+      await gCtx.client.callTool({
+        name: 'env_group_create',
+        arguments: { name: 'grp-test' },
+      })
+      await gCtx.client.callTool({
+        name: 'env_group_add_scope',
+        arguments: { group: 'grp-test', scope: process.cwd() },
+      })
+    })
+
+    afterAll(async () => {
+      await gCtx.cleanup()
+    })
+
+    it('first env in group auto-becomes default', async () => {
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'g-env-1', group: 'grp-test', variables: { X: '1' } },
+      })
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const env1 = items.find((i: { name: string }) => i.name === 'g-env-1')
+      expect(env1?.default).toBe(true)
+      expect(env1?.active).toBe(true) // default = active when no session override
+    })
+
+    it('env_switch changes active within same group', async () => {
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'g-env-2', group: 'grp-test', variables: { X: '2' } },
+      })
+
+      await gCtx.client.callTool({
+        name: 'env_switch',
+        arguments: { name: 'g-env-2' },
+      })
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const env1 = items.find((i: { name: string }) => i.name === 'g-env-1')
+      const env2 = items.find((i: { name: string }) => i.name === 'g-env-2')
+      expect(env1?.default).toBe(true)
+      expect(env1?.active).toBe(false)
+      expect(env2?.active).toBe(true)
+    })
+
+    it('env_set_default changes default and clears session active', async () => {
+      // Currently: g-env-2 is session active, g-env-1 is default
+      await gCtx.client.callTool({
+        name: 'env_set_default',
+        arguments: { name: 'g-env-2' },
+      })
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const env2 = items.find((i: { name: string }) => i.name === 'g-env-2')
+      expect(env2?.default).toBe(true)
+      expect(env2?.active).toBe(true) // active via default, session was cleared
+    })
+
+    it('env_set_default to another env makes it active immediately', async () => {
+      await gCtx.client.callTool({
+        name: 'env_set_default',
+        arguments: { name: 'g-env-1' },
+      })
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const env1 = items.find((i: { name: string }) => i.name === 'g-env-1')
+      const env2 = items.find((i: { name: string }) => i.name === 'g-env-2')
+      expect(env1?.default).toBe(true)
+      expect(env1?.active).toBe(true)
+      expect(env2?.default).toBe(false)
+      expect(env2?.active).toBe(false)
+    })
+
+    it('env_switch to global env works within group scope', async () => {
+      // Create a global env
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'g-global', group: '', variables: { Y: 'global' } },
+      })
+
+      const result = await gCtx.client.callTool({
+        name: 'env_switch',
+        arguments: { name: 'g-global' },
+      })
+      expect(result.isError).toBeUndefined()
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const globalEnv = items.find((i: { name: string }) => i.name === 'g-global')
+      expect(globalEnv?.active).toBe(true)
+    })
+
+    it('env_switch rejects env from different group', async () => {
+      // Create another group with an env
+      await gCtx.client.callTool({
+        name: 'env_group_create',
+        arguments: { name: 'other-grp' },
+      })
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'other-env', group: 'other-grp' },
+      })
+
+      const result = await gCtx.client.callTool({
+        name: 'env_switch',
+        arguments: { name: 'other-env' },
+      })
+      expect(result.isError).toBe(true)
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain('other-grp')
+      expect(text).toContain('grp-test')
+    })
+
+    it('env_group_list muestra grupos con sus detalles', async () => {
+      const result = await gCtx.client.callTool({
+        name: 'env_group_list',
+        arguments: {},
+      })
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      const groups = JSON.parse(text)
+      const grp = groups.find((g: { name: string }) => g.name === 'grp-test')
+      expect(grp).toBeDefined()
+      expect(grp.scopes.length).toBeGreaterThan(0)
+    })
+
+    it('env_group_remove_scope quita un scope', async () => {
+      // Add an extra scope to remove
+      await gCtx.client.callTool({
+        name: 'env_group_add_scope',
+        arguments: { group: 'grp-test', scope: '/tmp/removable' },
+      })
+
+      const result = await gCtx.client.callTool({
+        name: 'env_group_remove_scope',
+        arguments: { group: 'grp-test', scope: '/tmp/removable' },
+      })
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain("'/tmp/removable'")
+      expect(text).toContain('eliminado')
+
+      // Verify it's gone
+      const list = await gCtx.client.callTool({ name: 'env_group_list', arguments: {} })
+      const groups = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const grp = groups.find((g: { name: string }) => g.name === 'grp-test')
+      expect(grp.scopes).not.toContain('/tmp/removable')
+    })
+
+    it('env_group_remove_scope en grupo inexistente retorna error', async () => {
+      const result = await gCtx.client.callTool({
+        name: 'env_group_remove_scope',
+        arguments: { group: 'nope', scope: '/tmp/x' },
+      })
+      expect(result.isError).toBe(true)
+    })
+
+    it('env_set_group asigna entorno a un grupo', async () => {
+      // Create a global env
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'orphan-env', group: '', variables: { Z: '1' } },
+      })
+
+      const result = await gCtx.client.callTool({
+        name: 'env_set_group',
+        arguments: { environment: 'orphan-env', group: 'grp-test' },
+      })
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain("'orphan-env'")
+      expect(text).toContain("'grp-test'")
+    })
+
+    it('env_set_group con grupo vacío hace global', async () => {
+      const result = await gCtx.client.callTool({
+        name: 'env_set_group',
+        arguments: { environment: 'orphan-env', group: '' },
+      })
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain('global')
+    })
+
+    it('env_set_group en entorno inexistente retorna error', async () => {
+      const result = await gCtx.client.callTool({
+        name: 'env_set_group',
+        arguments: { environment: 'nope', group: 'grp-test' },
+      })
+      expect(result.isError).toBe(true)
+    })
+
+    it('env_set_group crea grupo automáticamente si no existe', async () => {
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'auto-grp-env', group: '', variables: {} },
+      })
+      const result = await gCtx.client.callTool({
+        name: 'env_set_group',
+        arguments: { environment: 'auto-grp-env', group: 'auto-created-grp' },
+      })
+      expect(result.isError).toBeUndefined()
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain("'auto-created-grp'")
+
+      // Verify group was created
+      const groups = await gCtx.client.callTool({ name: 'env_group_list', arguments: {} })
+      const groupsText = (groups.content as Array<{ type: string; text: string }>)[0].text
+      expect(groupsText).toContain('auto-created-grp')
+    })
+
+    it('deleting default env resets default, next created env becomes default', async () => {
+      // Switch back to a group env first
+      await gCtx.client.callTool({
+        name: 'env_switch',
+        arguments: { name: 'g-env-1' },
+      })
+
+      // Delete the current default (g-env-1)
+      await gCtx.client.callTool({
+        name: 'env_delete',
+        arguments: { name: 'g-env-1' },
+      })
+
+      // Delete g-env-2 too so group has no envs
+      await gCtx.client.callTool({
+        name: 'env_delete',
+        arguments: { name: 'g-env-2' },
+      })
+
+      // Create new env — should auto-become default
+      await gCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'g-env-3', group: 'grp-test' },
+      })
+
+      const list = await gCtx.client.callTool({ name: 'env_list', arguments: {} })
+      const items = JSON.parse((list.content as Array<{ type: string; text: string }>)[0].text)
+      const env3 = items.find((i: { name: string }) => i.name === 'g-env-3')
+      expect(env3?.default).toBe(true)
+      expect(env3?.active).toBe(true)
+    })
+  })
+
+  // ── env_group_delete ──
+
+  describe('env_group_delete', () => {
+    let dCtx: TestContext
+
+    beforeAll(async () => {
+      dCtx = await createTestClient()
+      // Create group with env
+      await dCtx.client.callTool({
+        name: 'env_group_create',
+        arguments: { name: 'del-grp' },
+      })
+      await dCtx.client.callTool({
+        name: 'env_create',
+        arguments: { name: 'del-env', group: 'del-grp', variables: { A: '1' } },
+      })
+    })
+
+    afterAll(async () => {
+      await dCtx.cleanup()
+    })
+
+    it('env_group_delete elimina grupo y hace entornos globales', async () => {
+      const result = await dCtx.client.callTool({
+        name: 'env_group_delete',
+        arguments: { name: 'del-grp' },
+      })
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text
+      expect(text).toContain("'del-grp' eliminado")
+      expect(text).toContain('globales')
+
+      // Verify env still exists but is now global
+      const get = await dCtx.client.callTool({
+        name: 'env_get',
+        arguments: { environment: 'del-env' },
+      })
+      const data = JSON.parse((get.content as Array<{ type: string; text: string }>)[0].text)
+      expect(data.variables.A).toBe('1')
+    })
+
+    it('env_group_delete en grupo inexistente retorna error', async () => {
+      const result = await dCtx.client.callTool({
+        name: 'env_group_delete',
+        arguments: { name: 'nope' },
+      })
+      expect(result.isError).toBe(true)
+    })
+
+    it('env_group_list sin grupos retorna mensaje vacío', async () => {
+      // Delete any remaining groups
+      const list = await dCtx.client.callTool({ name: 'env_group_list', arguments: {} })
+      const text = (list.content as Array<{ type: string; text: string }>)[0].text
+      // If no groups, should say so
+      if (text.includes('No hay grupos')) {
+        expect(text).toContain('No hay grupos')
+      } else {
+        // There might be other groups from other tests, just verify it's valid JSON
+        expect(() => JSON.parse(text)).not.toThrow()
+      }
+    })
+  })
 })

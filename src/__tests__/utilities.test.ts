@@ -393,12 +393,11 @@ describe('utility tools', () => {
   })
 
   it('export_postman_collection incluye body y método en items', async () => {
-    const result = await ctx.client.callTool({
+    await ctx.client.callTool({
       name: 'export_postman_collection',
       arguments: { tag: 'test', output_dir: postmanDir },
     })
 
-    const text = (result.content as Array<{ type: string; text: string }>)[0].text
     // Read the file to verify contents
     const filePath = join(postmanDir, 'api-testing-collection.postman_collection.json')
     const fileContent = await readFile(filePath, 'utf-8')
@@ -428,7 +427,7 @@ describe('utility tools', () => {
       },
     })
 
-    const result = await ctx.client.callTool({
+    await ctx.client.callTool({
       name: 'export_postman_collection',
       arguments: { tag: 'auth', output_dir: postmanDir },
     })

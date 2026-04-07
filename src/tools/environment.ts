@@ -374,6 +374,24 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     },
     async (params) => {
       try {
+        const env = await storage.getEnvironment(params.name)
+        if (!env) {
+          return {
+            content: [{ type: 'text' as const, text: `Error: Entorno '${params.name}' no encontrado` }],
+            isError: true,
+          }
+        }
+
+        // Validar que no sea de otro grupo (distinto al del CWD)
+        const projectPath = params.project ?? process.cwd()
+        const cwdGroup = await storage.getGroupForPath(projectPath)
+        if (cwdGroup && env.group && env.group !== cwdGroup.name) {
+          return {
+            content: [{ type: 'text' as const, text: `Error: El entorno '${params.name}' pertenece al grupo '${env.group}', pero el directorio actual pertenece al grupo '${cwdGroup.name}'. Usa un entorno del mismo grupo o uno global.` }],
+            isError: true,
+          }
+        }
+
         await storage.setActiveEnvironment(params.name, params.project)
 
         const scope = params.project
@@ -606,6 +624,8 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
           return { content: [{ type: 'text' as const, text: `Error: El entorno '${params.name}' es global y no pertenece a ningun grupo. Solo los entornos de un grupo pueden ser default.` }], isError: true }
         }
         await storage.setGroupDefault(env.group, params.name)
+        // Limpiar todas las sesiones activas del grupo para que el nuevo default tome efecto inmediato
+        await storage.clearGroupSessionActives(env.group)
         return {
           content: [{ type: 'text' as const, text: `Entorno '${params.name}' marcado como default del grupo '${env.group}'` }],
         }

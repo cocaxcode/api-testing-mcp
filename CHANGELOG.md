@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.2
+
+### Docs
+
+- "Native vs MCP" section: added upfront TL;DR line (65-97% savings vs raw curl) and a new "Uses MCP?" column in the comparison table to make at a glance which rows are native and which go through the MCP.
+
 ## 0.13.1
 
 ### Docs

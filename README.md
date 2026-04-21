@@ -217,6 +217,26 @@ AI agents pay for every byte that lands in their context window. By default, `re
 }
 ```
 
+### Native vs MCP: real token cost
+
+Concrete measurements from a real call to `GET /api/v1/blog` returning 8 posts (~8.7 KB of JSON, 19 response headers):
+
+| How the agent calls it | Tokens consumed | Delta vs curl |
+|---|---|---|
+| `Bash` + `curl` (raw stdout) | ~2,170 | baseline |
+| `Bash` + `rtk curl` (generic filter) | ~600 | −72% |
+| `WebFetch` (LLM summary) | ~400-800 | −65%, but no auth / no envs / no inspect |
+| `request` verbosity=`full` | ~2,170 | 0% (same as curl, no compression) |
+| **`request` verbosity=`normal`** *(default)* | **~750** | **−65%** |
+| `request` verbosity=`minimal` | ~50 | **−97%** |
+| `request` with `only_fields: ["data[*].id","data[*].title"]` | ~190 | **−91%** |
+
+Notes:
+
+- Against bare `curl`, the MCP saves 65-97% out of the box.
+- Against `rtk curl` the incremental saving is small (~20%). The value of the MCP in that case is in the extras: `{{variable}}` interpolation, auth schemas, stored environments, `inspect_last_response` (recover the full response without re-hitting the server), flows, Postman import, etc.
+- Every registered MCP adds a fixed overhead of ~300-600 tokens per session (its instructions block + tool names). Typical break-even: 1-2 real calls per session.
+
 ### Assertions
 
 Validate responses with structured pass/fail results:

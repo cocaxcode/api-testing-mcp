@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+### Docs
+
+- Added **"Native vs MCP: real token cost"** section to the README with a concrete comparison table (curl, rtk curl, WebFetch vs the three verbosity modes and only_fields) based on a measured real-world call. Includes the honest notes about rtk curl incremental savings and the per-session MCP overhead.
+
 ## 0.13.0
 
 ### Added

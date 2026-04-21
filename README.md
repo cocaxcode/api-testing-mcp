@@ -172,7 +172,7 @@ Send any HTTP method with headers, query params, JSON body, auth, and `{{variabl
 
 Supports: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — Bearer / API Key / Basic auth — custom timeouts.
 
-### Token Optimization (v0.13+)
+### Compression modes (v0.13+)
 
 AI agents pay for every byte that lands in their context window. By default, `request` now returns a compressed response that cuts 70-95% of those tokens without losing debugging value. Three optional parameters control it:
 
@@ -197,6 +197,8 @@ AI agents pay for every byte that lands in their context window. By default, `re
 | `minimal` | ~50-80 | ~95% |
 | `only_fields: ['data.id']` | ~30 | ~98% |
 
+> For a head-to-head comparison against `curl`, `WebFetch` and other native alternatives with measured numbers, see [Native alternatives](#native-alternatives-real-token-cost) below.
+
 **Recovering full responses:** every compressed response includes a `call_id`. If you need the full body later, call `inspect_last_response({ call_id })` — no need to re-execute the request. Responses are kept in a 20-slot ring buffer and persisted to `.api-testing/last-responses/` with a 1-hour TTL.
 
 ```json
@@ -217,7 +219,9 @@ AI agents pay for every byte that lands in their context window. By default, `re
 }
 ```
 
-### Native vs MCP: real token cost
+### Native alternatives: real token cost
+
+How this MCP compares against the native options Claude Code has when `api-testing` is not available (Bash + curl, WebFetch, etc.).
 
 **TL;DR**: compared to raw `curl`, `request` saves between **65% and 97%** of context tokens depending on the mode, with no loss of debugging information. Measured on a real call to `GET /api/v1/blog` returning 8 posts (~8.7 KB of JSON, 19 response headers):
 
@@ -230,11 +234,13 @@ AI agents pay for every byte that lands in their context window. By default, `re
 | `request` verbosity=`minimal` | ✅ MCP | ~50 | **−97%** |
 | `request` with `only_fields: ["data[*].id","data[*].title"]` | ✅ MCP | ~190 | **−91%** |
 
+> Why this table's numbers differ slightly from the "Compression modes" section above: these come from a single real-world response, while the previous table shows typical savings on a synthetic 5 KB response. Trend and order of magnitude are the same.
+
 Notes:
 
 - The default mode (`normal`) already saves 65% without any configuration: it filters out noisy headers (Date, Server, CF-*, Set-Cookie…) and caps the body at 2048 bytes.
 - `only_fields` accepts dot-paths with array index and wildcard support (`items[*].name`) — returns only the fields you ask for.
-- Every compressed response includes a `call_id`. If you later need the full body, call `inspect_last_response({ call_id })` and you recover it from the buffer without hitting the server again.
+- The MCP also adds features that have no direct native equivalent: `{{variable}}` interpolation, stored environments, auth schemas, flows, Postman import/export, and `inspect_last_response` to recover the full body without re-hitting the server.
 - Every registered MCP adds a fixed overhead of ~300-600 tokens per session (its instructions block + tool names). Typical break-even: 1-2 real calls per session.
 
 ### Assertions

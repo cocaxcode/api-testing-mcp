@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.3
+
+### Docs
+
+- README polish: renamed `Token Optimization` → `Compression modes` and `Native vs MCP` → `Native alternatives` to make intent clearer. Added a connector link from the first section to the second and a short note explaining why the two savings tables show slightly different percentages (synthetic 5 KB response vs real-world 8.7 KB call). Removed the duplicated `call_id` note and replaced it with a line that highlights MCP-only features (envs, auth, flows, Postman, inspect_last_response).
+
 ## 0.13.2
 
 ### Docs

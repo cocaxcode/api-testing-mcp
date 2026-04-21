@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { Storage } from './lib/storage.js'
+import { ResponseCache } from './lib/response-cache.js'
 import { registerRequestTool } from './tools/request.js'
 import { registerCollectionTools } from './tools/collection.js'
 import { registerEnvironmentTools } from './tools/environment.js'
@@ -9,6 +10,7 @@ import { registerFlowTool } from './tools/flow.js'
 import { registerUtilityTools } from './tools/utilities.js'
 import { registerMockTool } from './tools/mock.js'
 import { registerLoadTestTool } from './tools/load-test.js'
+import { registerInspectTool } from './tools/inspect.js'
 
 declare const __PKG_VERSION__: string
 const VERSION = typeof __PKG_VERSION__ !== 'undefined' ? __PKG_VERSION__ : '0.0.0'
@@ -51,12 +53,13 @@ export async function createServer(storageDir?: string): Promise<McpServer> {
   })
 
   const storage = new Storage(storageDir)
+  const responseCache = new ResponseCache(storage.baseDir)
 
   // Limpiar activos de sesión al arrancar — cada sesión empieza con los defaults
   await storage.clearSessionActives()
 
   // Registrar tools
-  registerRequestTool(server, storage)
+  registerRequestTool(server, storage, responseCache)
   registerCollectionTools(server, storage)
   registerEnvironmentTools(server, storage)
   registerApiSpecTools(server, storage)
@@ -65,6 +68,7 @@ export async function createServer(storageDir?: string): Promise<McpServer> {
   registerUtilityTools(server, storage)
   registerMockTool(server, storage)
   registerLoadTestTool(server, storage)
+  registerInspectTool(server, responseCache)
 
   return server
 }

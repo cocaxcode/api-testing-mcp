@@ -9,3 +9,4 @@ coverage/
 .github/
 api-spec*.json
 .database-mcp/
+.token-optimizer/

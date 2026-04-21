@@ -172,6 +172,51 @@ Send any HTTP method with headers, query params, JSON body, auth, and `{{variabl
 
 Supports: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — Bearer / API Key / Basic auth — custom timeouts.
 
+### Token Optimization (v0.13+)
+
+AI agents pay for every byte that lands in their context window. By default, `request` now returns a compressed response that cuts 70-95% of those tokens without losing debugging value. Three optional parameters control it:
+
+| Param | Values | What it does |
+|---|---|---|
+| `verbosity` | `'minimal'` / `'normal'` (default) / `'full'` | Controls detail level |
+| `only_fields` | `['user.id', 'items[*].name']` | Returns only these body paths (dot-notation + wildcards) |
+| `max_body_bytes` | number (default `2048`) | Body size cap for `'normal'` |
+
+**Modes:**
+
+- **`minimal`** — only `status`, `timing`, `size_bytes`, first 200 chars of body. Perfect for health checks, polling loops, or fire-and-forget calls. *Saves ~95% tokens.*
+- **`normal`** *(default)* — filtered headers (drops `Date`, `Server`, `CF-*`, `Set-Cookie`, etc.) + body truncated to `max_body_bytes`. Covers ~80% of debugging use cases. *Saves ~75% tokens.*
+- **`full`** — complete response untouched. Use when you explicitly need every header or the full body.
+
+**Typical savings on a 5 KB JSON response** (≈1,500 tokens):
+
+| Mode | Tokens consumed | Savings |
+|---|---|---|
+| `full` | ~1,500 | 0% (baseline) |
+| `normal` | ~300-400 | ~75% |
+| `minimal` | ~50-80 | ~95% |
+| `only_fields: ['data.id']` | ~30 | ~98% |
+
+**Recovering full responses:** every compressed response includes a `call_id`. If you need the full body later, call `inspect_last_response({ call_id })` — no need to re-execute the request. Responses are kept in a 20-slot ring buffer and persisted to `.api-testing/last-responses/` with a 1-hour TTL.
+
+```json
+// Example: normal (default) response
+{
+  "call_id": "k3m9a2xp",
+  "status": 200,
+  "statusText": "OK",
+  "method": "GET",
+  "url": "https://api.example.com/users/1",
+  "timing": { "total_ms": 142 },
+  "size_bytes": 5324,
+  "headers": { "content-type": "application/json" },
+  "body": { "id": 1, "email": "...", "...": "..." },
+  "body_truncated": true,
+  "hint": "Body truncated to 2048 bytes (full size: 5324B). Call inspect_last_response({ call_id: \"k3m9a2xp\" }) for the full body.",
+  "tokens_saved_estimate": 820
+}
+```
+
 ### Assertions
 
 Validate responses with structured pass/fail results:

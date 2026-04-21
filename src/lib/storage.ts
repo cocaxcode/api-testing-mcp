@@ -47,7 +47,7 @@ export async function clearSessionActives(): Promise<void> {
 }
 
 export class Storage {
-  private readonly baseDir: string
+  public readonly baseDir: string
   private readonly collectionsDir: string
   private readonly environmentsDir: string
   private readonly specsDir: string

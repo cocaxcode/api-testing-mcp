@@ -4,13 +4,19 @@ import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
-import { AuthSchemaShape } from '../lib/schemas.js'
+import { AuthSchemaShape, VerbosityShape } from '../lib/schemas.js'
+import { compressResponse, makeCallId } from '../lib/compress.js'
+import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig } from '../lib/types.js'
 
-export function registerRequestTool(server: McpServer, storage: Storage): void {
+export function registerRequestTool(
+  server: McpServer,
+  storage: Storage,
+  cache: ResponseCache,
+): void {
   server.tool(
     'request',
-    'Ejecuta un HTTP request. URLs relativas (/path) usan BASE_URL del entorno activo. Soporta {{variables}}.',
+    'Ejecuta un HTTP request. URLs relativas (/path) usan BASE_URL del entorno activo. Soporta {{variables}}. La respuesta se comprime por defecto (verbosity=normal) para ahorrar tokens; usa verbosity=full o inspect_last_response si necesitas la respuesta completa.',
     {
       method: z
         .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
@@ -34,6 +40,7 @@ export function registerRequestTool(server: McpServer, storage: Storage): void {
         .object(AuthSchemaShape)
         .optional()
         .describe('Configuración de autenticación'),
+      ...VerbosityShape,
     },
     async (params) => {
       try {
@@ -53,11 +60,24 @@ export function registerRequestTool(server: McpServer, storage: Storage): void {
         const interpolated = interpolateRequest(config, variables)
         const response = await executeRequest(interpolated)
 
+        const callId = makeCallId()
+        // Guarda la response full para poder recuperarla con inspect_last_response
+        await cache.save(callId, interpolated.method, interpolated.url, response)
+
+        const compressed = compressResponse(response, {
+          verbosity: params.verbosity,
+          only_fields: params.only_fields,
+          max_body_bytes: params.max_body_bytes,
+          request_method: interpolated.method,
+          request_url: interpolated.url,
+          call_id: callId,
+        })
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(response, null, 2),
+              text: JSON.stringify(compressed, null, 2),
             },
           ],
         }

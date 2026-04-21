@@ -2,7 +2,18 @@
 
 ## Project Overview
 
-MCP server for API testing. Zero cloud dependencies, local JSON storage. 35 tools, 120 tests.
+MCP server for API testing. Zero cloud dependencies, local JSON storage. 36 tools, 171 tests.
+
+## Token-optimized responses (v0.13+)
+
+`request` accepts three optional parameters that cut context tokens by 70-97%:
+- `verbosity`: `'minimal' | 'normal' | 'full'` (default `'normal'`)
+- `only_fields`: `string[]` with dot-paths (`data.id`, `items[*].name`)
+- `max_body_bytes`: number (default 2048) for `'normal'`
+
+Every compressed response includes a `call_id`. Use `inspect_last_response({ call_id })` to recover the full unfiltered response when needed. Responses are cached in a 20-slot ring buffer + `.api-testing/last-responses/` with 1h TTL.
+
+Header filter lists live in `lib/compress.ts` (`FILTERED_HEADERS`, `FILTERED_HEADER_PATTERNS`).
 
 ## Stack
 

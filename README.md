@@ -10,7 +10,7 @@
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/v/@cocaxcode/api-testing-mcp.svg?style=flat-square&color=cb3837" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
   <img src="https://img.shields.io/badge/tools-42-blueviolet?style=flat-square" alt="42 tools" />
-  <img src="https://img.shields.io/badge/tests-120+-brightgreen?style=flat-square" alt="120+ tests" />
+  <img src="https://img.shields.io/badge/tests-171-brightgreen?style=flat-square" alt="171 tests" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
 </p>
@@ -199,7 +199,7 @@ AI agents pay for every byte that lands in their context window. By default, `re
 
 > For a head-to-head comparison against `curl`, `WebFetch` and other native alternatives with measured numbers, see [Native alternatives](#native-alternatives-real-token-cost) below.
 
-**Recovering full responses:** every compressed response includes a `call_id`. If you need the full body later, call `inspect_last_response({ call_id })` — no need to re-execute the request. Responses are kept in a 20-slot ring buffer and persisted to `.api-testing/last-responses/` with a 1-hour TTL.
+**Recovering full responses:** every compressed response includes a `call_id`. If you need the full body later, call `inspect_last_response({ call_id })` — no need to re-execute the request. This works for `request`, `assert`, and each step of `flow_run`. Responses are kept in a 20-slot ring buffer and persisted to `.api-testing/last-responses/` with a 1-hour TTL.
 
 ```json
 // Example: normal (default) response
@@ -467,15 +467,16 @@ curl -X POST \
 
 ## Tool Reference
 
-42 tools across 9 categories:
+42 tools across 10 categories:
 
 | Category | Tools | Count |
 |----------|-------|:-----:|
 | **Requests** | `request` | 1 |
+| **Inspect** | `inspect_last_response` | 1 |
 | **Testing** | `assert` | 1 |
 | **Flows** | `flow_run` | 1 |
 | **Collections** | `collection_save`, `collection_list`, `collection_get`, `collection_delete` | 4 |
-| **Environments** | `env_create`, `env_list`, `env_set`, `env_get`, `env_switch`, `env_rename`, `env_delete`, `env_spec` | 8 |
+| **Environments** | `env_create`, `env_list`, `env_set`, `env_get`, `env_switch`, `env_rename`, `env_delete`, `env_spec`, `env_project_clear`, `env_project_list` | 10 |
 | **Groups** | `env_group_create`, `env_group_list`, `env_group_delete`, `env_group_add_scope`, `env_group_remove_scope`, `env_set_default`, `env_set_group` | 7 |
 | **API Specs** | `api_import`, `api_spec_list`, `api_endpoints`, `api_endpoint_detail` | 4 |
 | **Mock** | `mock` | 1 |
@@ -519,25 +520,27 @@ src/
 ├── index.ts              # Entry point (shebang + StdioServerTransport)
 ├── server.ts             # createServer() factory
 ├── tools/                # 42 tool handlers (one file per category)
-│   ├── request.ts        # HTTP requests (1)
+│   ├── request.ts        # HTTP request (1)
+│   ├── inspect.ts        # inspect_last_response (1)
 │   ├── assert.ts         # Assertions (1)
 │   ├── flow.ts           # Request chaining (1)
 │   ├── collection.ts     # Collection CRUD (4)
-│   ├── environment.ts    # Environment management (8)
-│   ├── group.ts          # Environment groups (7)
+│   ├── environment.ts    # Environments + groups (17)
 │   ├── api-spec.ts       # OpenAPI import/browse (4)
 │   ├── mock.ts           # Mock data generation (1)
 │   ├── load-test.ts      # Load testing (1)
-│   └── utilities.ts      # curl, diff, bulk, import/export (12)
+│   └── utilities.ts      # curl, diff, bulk, import/export (11)
 ├── lib/                  # Business logic (no MCP dependency)
 │   ├── http-client.ts    # fetch wrapper with timing
-│   ├── storage.ts        # JSON file storage engine
-│   ├── schemas.ts        # Shared Zod schemas
+│   ├── storage.ts        # JSON file storage engine (atomic writes)
+│   ├── compress.ts       # Response compression + verbosity modes
+│   ├── response-cache.ts # Ring buffer + disk cache for inspect
+│   ├── schemas.ts        # Shared Zod schemas (HttpMethodSchema, AuthSchema)
 │   ├── url.ts            # BASE_URL resolution
 │   ├── path.ts           # Dot-notation accessor (body.data.0.id)
 │   ├── interpolation.ts  # {{variable}} resolver
 │   └── openapi-parser.ts # $ref + allOf/oneOf/anyOf resolution
-└── __tests__/            # 10+ test suites, 120+ tests
+└── __tests__/            # 10+ test suites, 171 tests
 ```
 
 **Stack:** TypeScript (strict) · MCP SDK · Zod · Vitest · tsup

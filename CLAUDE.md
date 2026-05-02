@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MCP server for API testing. Zero cloud dependencies, local JSON storage. 36 tools, 171 tests.
+MCP server for API testing. Zero cloud dependencies, local JSON storage. 42 tools, 171 tests.
 
 ## Token-optimized responses (v0.13+)
 

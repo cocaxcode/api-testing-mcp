@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, readdir, unlink, stat } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { RequestResponse } from './types.js'
 
@@ -116,12 +116,13 @@ export class ResponseCache {
       for (const f of files) {
         if (!f.endsWith('.json')) continue
         try {
-          const s = await stat(join(this.dir, f))
-          if (now - s.mtimeMs > this.ttlMs) {
+          const raw = await readFile(join(this.dir, f), 'utf-8')
+          const entry = JSON.parse(raw) as CachedEntry
+          if (now - entry.saved_at > this.ttlMs) {
             await unlink(join(this.dir, f))
           }
         } catch {
-          // ignore
+          // ignore corrupt or unreadable file
         }
       }
     } catch {

@@ -6,7 +6,7 @@ import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
-import { AuthSchema } from '../lib/schemas.js'
+import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import type { RequestConfig, AuthConfig, SavedRequest, HttpMethod, Environment } from '../lib/types.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
@@ -121,7 +121,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
 
   const DiffRequestSchema = z.object({
     label: z.string().optional().describe('Etiqueta (ej: "antes", "dev", "v1")'),
-    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']),
+    method: HttpMethodSchema,
     url: z.string(),
     headers: z.record(z.string()).optional(),
     body: z.any().optional(),
@@ -1309,7 +1309,7 @@ function flattenPostmanItems(
   return result
 }
 
-const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
+const VALID_METHODS = new Set(HttpMethodSchema.options)
 
 /**
  * Convert a Postman item to a SavedRequest.

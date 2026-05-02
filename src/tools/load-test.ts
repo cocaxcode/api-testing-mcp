@@ -4,7 +4,7 @@ import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
-import { AuthSchema } from '../lib/schemas.js'
+import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import type { RequestConfig } from '../lib/types.js'
 
 export function registerLoadTestTool(server: McpServer, storage: Storage): void {
@@ -12,9 +12,7 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
     'load_test',
     'Lanza N requests concurrentes al mismo endpoint y mide tiempos promedio, percentiles y tasa de errores.',
     {
-      method: z
-        .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
-        .describe('HTTP method'),
+      method: HttpMethodSchema.describe('HTTP method'),
       url: z.string().describe('URL del endpoint'),
       headers: z.record(z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request'),

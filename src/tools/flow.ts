@@ -5,14 +5,14 @@ import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { getByPath } from '../lib/path.js'
-import { AuthSchema } from '../lib/schemas.js'
+import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
+import { makeCallId } from '../lib/compress.js'
+import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
 
 const FlowStepSchema = z.object({
   name: z.string().describe('Nombre del paso (ej: "login", "crear-post")'),
-  method: z
-    .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
-    .describe('HTTP method'),
+  method: HttpMethodSchema.describe('HTTP method'),
   url: z.string().describe('URL del endpoint'),
   headers: z.record(z.string()).optional().describe('Headers HTTP'),
   body: z.any().optional().describe('Body del request'),
@@ -26,7 +26,11 @@ const FlowStepSchema = z.object({
     ),
 })
 
-export function registerFlowTool(server: McpServer, storage: Storage): void {
+export function registerFlowTool(
+  server: McpServer,
+  storage: Storage,
+  cache: ResponseCache,
+): void {
   server.tool(
     'flow_run',
     'Ejecuta una secuencia de requests en orden. Extrae variables de cada respuesta para usar en pasos siguientes con {{variable}}.',
@@ -47,6 +51,7 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
           status: number
           timing: number
           extracted: Record<string, string>
+          call_id?: string
           error?: string
         }> = []
 
@@ -66,6 +71,9 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
             const interpolated = interpolateRequest(config, flowVariables)
             const response: RequestResponse = await executeRequest(interpolated)
 
+            const callId = makeCallId()
+            await cache.save(callId, interpolated.method, interpolated.url, response)
+
             // Extract variables from response
             const extracted: Record<string, string> = {}
             if (step.extract) {
@@ -83,6 +91,7 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
               status: response.status,
               timing: response.timing.total_ms,
               extracted,
+              call_id: callId,
             })
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
@@ -114,6 +123,7 @@ export function registerFlowTool(server: McpServer, storage: Storage): void {
             lines.push(`   Error: ${r.error}`)
           } else {
             lines.push(`   Status: ${r.status} | Tiempo: ${r.timing}ms`)
+            if (r.call_id) lines.push(`   call_id: ${r.call_id}`)
           }
 
           if (Object.keys(r.extracted).length > 0) {

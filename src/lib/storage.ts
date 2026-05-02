@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, readdir, unlink } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, unlink, rename } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
@@ -33,17 +33,6 @@ export function maskVariables(
     masked[key] = maskSensitiveValue(key, value)
   }
   return masked
-}
-
-/** @deprecated Usa Storage.clearSessionActives() en su lugar */
-export async function clearSessionActives(): Promise<void> {
-  const baseDir = process.env.API_TESTING_DIR ?? join(homedir(), '.api-testing')
-  const projectEnvsFile = join(baseDir, 'project-envs.json')
-  try {
-    await unlink(projectEnvsFile)
-  } catch {
-    // No existe, ok
-  }
 }
 
 export class Storage {
@@ -557,7 +546,9 @@ export class Storage {
   }
 
   private async writeJson(filePath: string, data: unknown): Promise<void> {
-    await writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    const tmp = filePath + '.tmp'
+    await writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
+    await rename(tmp, filePath)
   }
 
   private async listJsonFiles(dir: string): Promise<string[]> {

@@ -5,7 +5,9 @@ import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { getByPath } from '../lib/path.js'
-import { AuthSchema } from '../lib/schemas.js'
+import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
+import { makeCallId } from '../lib/compress.js'
+import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
 
 const AssertionSchema = z.object({
@@ -123,14 +125,16 @@ function evaluateAssertion(
   }
 }
 
-export function registerAssertTool(server: McpServer, storage: Storage): void {
+export function registerAssertTool(
+  server: McpServer,
+  storage: Storage,
+  cache: ResponseCache,
+): void {
   server.tool(
     'assert',
     'Ejecuta un request y valida la respuesta con assertions. Retorna resultado pass/fail por cada assertion.',
     {
-      method: z
-        .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
-        .describe('HTTP method'),
+      method: HttpMethodSchema.describe('HTTP method'),
       url: z.string().describe('URL del endpoint (soporta /relativa y {{variables}})'),
       headers: z.record(z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request (JSON)'),
@@ -157,6 +161,9 @@ export function registerAssertTool(server: McpServer, storage: Storage): void {
         const interpolated = interpolateRequest(config, variables)
         const response = await executeRequest(interpolated)
 
+        const callId = makeCallId()
+        await cache.save(callId, interpolated.method, interpolated.url, response)
+
         // Evaluate assertions
         const results = params.assertions.map((assertion) => {
           const result = evaluateAssertion(response, assertion)
@@ -170,6 +177,7 @@ export function registerAssertTool(server: McpServer, storage: Storage): void {
         const lines: string[] = [
           `${allPassed ? '✅ PASS' : '❌ FAIL'} — ${passed}/${results.length} assertions passed`,
           `${params.method} ${params.url} → ${response.status} ${response.statusText} (${response.timing.total_ms}ms)`,
+          `call_id: ${callId}`,
           '',
         ]
 

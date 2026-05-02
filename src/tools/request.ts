@@ -4,7 +4,7 @@ import type { Storage } from '../lib/storage.js'
 import { executeRequest } from '../lib/http-client.js'
 import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
-import { AuthSchemaShape, VerbosityShape } from '../lib/schemas.js'
+import { AuthSchemaShape, VerbosityShape, HttpMethodSchema } from '../lib/schemas.js'
 import { compressResponse, makeCallId } from '../lib/compress.js'
 import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig } from '../lib/types.js'
@@ -18,9 +18,7 @@ export function registerRequestTool(
     'request',
     'Ejecuta un HTTP request. URLs relativas (/path) usan BASE_URL del entorno activo. Soporta {{variables}}. La respuesta se comprime por defecto (verbosity=normal) para ahorrar tokens; usa verbosity=full o inspect_last_response si necesitas la respuesta completa.',
     {
-      method: z
-        .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
-        .describe('HTTP method'),
+      method: HttpMethodSchema.describe('HTTP method'),
       url: z
         .string()
         .describe(

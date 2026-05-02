@@ -4,8 +4,9 @@ import type {
   ApiSpecSchema,
   ApiSpec,
 } from './types.js'
+import { HttpMethodSchema } from './schemas.js'
 
-const VALID_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+const VALID_METHODS = HttpMethodSchema.options as HttpMethod[]
 
 /**
  * Resuelve $ref references en un schema OpenAPI.

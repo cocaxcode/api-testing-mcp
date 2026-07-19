@@ -1,9 +1,4 @@
-import type {
-  HttpMethod,
-  ApiSpecEndpoint,
-  ApiSpecSchema,
-  ApiSpec,
-} from './types.js'
+import type { HttpMethod, ApiSpecEndpoint, ApiSpecSchema, ApiSpec } from './types.js'
 import { HttpMethodSchema } from './schemas.js'
 
 const VALID_METHODS = HttpMethodSchema.options as HttpMethod[]
@@ -12,10 +7,7 @@ const VALID_METHODS = HttpMethodSchema.options as HttpMethod[]
  * Resuelve $ref references en un schema OpenAPI.
  * Soporta refs tipo "#/components/schemas/MyModel".
  */
-function resolveRef(
-  ref: string,
-  root: Record<string, unknown>,
-): ApiSpecSchema | undefined {
+function resolveRef(ref: string, root: Record<string, unknown>): ApiSpecSchema | undefined {
   const parts = ref.replace(/^#\//, '').split('/')
   let current: unknown = root
 
@@ -50,7 +42,7 @@ function resolveSchema(
 
   const result: ApiSpecSchema = { ...schema }
 
-  // Resolve allOf — merge all schemas into one
+  // Resolve allOf - merge all schemas into one
   const rawAllOf = (schema as Record<string, unknown>).allOf as ApiSpecSchema[] | undefined
   if (rawAllOf && Array.isArray(rawAllOf)) {
     const merged: ApiSpecSchema = { type: 'object' }
@@ -78,7 +70,7 @@ function resolveSchema(
     return merged
   }
 
-  // Resolve oneOf/anyOf — pick the first schema as representative
+  // Resolve oneOf/anyOf - pick the first schema as representative
   const rawOneOf = (schema as Record<string, unknown>).oneOf as ApiSpecSchema[] | undefined
   const rawAnyOf = (schema as Record<string, unknown>).anyOf as ApiSpecSchema[] | undefined
   const unionSchemas = rawOneOf ?? rawAnyOf
@@ -148,8 +140,15 @@ export function parseOpenApiSpec(
 
         const op = operation as Record<string, unknown>
 
-        // Parse parameters
-        const rawParams = (op.parameters ?? []) as Array<Record<string, unknown>>
+        // Path-level parameters apply to every operation. Operation parameters
+        // override matching path parameters by name and location.
+        const pathParams = (pathItem.parameters ?? []) as Array<Record<string, unknown>>
+        const operationParams = (op.parameters ?? []) as Array<Record<string, unknown>>
+        const paramsByIdentity = new Map<string, Record<string, unknown>>()
+        for (const param of [...pathParams, ...operationParams]) {
+          paramsByIdentity.set(`${String(param.in)}:${String(param.name)}`, param)
+        }
+        const rawParams = [...paramsByIdentity.values()]
         const parameters = rawParams.map((p) => ({
           name: p.name as string,
           in: p.in as 'path' | 'query' | 'header' | 'cookie',
@@ -182,7 +181,10 @@ export function parseOpenApiSpec(
 
         // Parse responses
         const rawResponses = (op.responses ?? {}) as Record<string, Record<string, unknown>>
-        const responses: Record<string, { description?: string; content?: Record<string, { schema?: ApiSpecSchema }> }> = {}
+        const responses: Record<
+          string,
+          { description?: string; content?: Record<string, { schema?: ApiSpecSchema }> }
+        > = {}
 
         for (const [statusCode, resp] of Object.entries(rawResponses)) {
           const respContent = resp.content as Record<string, Record<string, unknown>> | undefined

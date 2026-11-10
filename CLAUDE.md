@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MCP server for API testing. Zero cloud dependencies, local JSON storage. 42 tools, 173 tests.
+MCP server for API testing. Zero cloud dependencies, local JSON storage. 42 tools, 180 tests.
 
 ## Token-optimized responses (v0.13+)
 
@@ -51,7 +51,7 @@ src/
 │   └── openapi-parser.ts # OpenAPI spec parser with $ref + allOf/oneOf/anyOf
 └── __tests__/
     ├── helpers.ts    # createTestClient() with InMemoryTransport
-    └── *.test.ts     # 14 test files, 173 tests
+    └── *.test.ts     # 15 test files, 180 tests
 ```
 
 ## Key Patterns
@@ -67,7 +67,7 @@ src/
 ## Commands
 
 ```bash
-npm test          # Run all tests (173)
+npm test          # Run all tests (180)
 npm run build     # Build with tsup
 npm run typecheck # TypeScript check
 npm run lint      # ESLint

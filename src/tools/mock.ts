@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import type { ApiSpecSchema } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 /**
  * Genera datos fake basándose en un schema OpenAPI.
@@ -105,6 +106,7 @@ export function registerMockTool(server: McpServer, storage: Storage): void {
         .optional()
         .describe('Número de items mock a generar si el schema es un array (default: 3)'),
     },
+    TOOL_ANNOTATIONS.mock,
     async (params) => {
       try {
         const spec = await storage.getSpec(params.name)

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- MCP tool annotations on all 42 tools (`title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), defined in `lib/annotations.ts`. Clients can use them to skip approval prompts for read-only tools and warn before destructive ones.
+
+### Chore
+
+- `@modelcontextprotocol/sdk` 1.27 → 1.32.2, `yaml` 2.8 → 2.9.1.
+- Server instructions and `env_group_create` now use generic group examples.
+- Fixed stale tool/test counts in `package.json`, README and CLAUDE.md.
+
 ## 0.13.3
 
 ### Docs

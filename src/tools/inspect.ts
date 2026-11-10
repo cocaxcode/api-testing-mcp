@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ResponseCache } from '../lib/response-cache.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerInspectTool(server: McpServer, cache: ResponseCache): void {
   server.tool(
@@ -14,6 +15,7 @@ export function registerInspectTool(server: McpServer, cache: ResponseCache): vo
           "ID devuelto en el campo 'call_id' de una response comprimida. Si se omite, devuelve la última response guardada (warning si hay varias en los últimos 5s).",
         ),
     },
+    TOOL_ANNOTATIONS.inspect_last_response,
     async (params) => {
       try {
         const entry = await cache.get(params.call_id)

@@ -2,7 +2,7 @@
   "name": "@cocaxcode/api-testing-mcp",
   "version": "0.13.4",
   "mcpName": "io.github.cocaxcode/api-testing-mcp",
-  "description": "The most complete MCP server for API testing. 36 tools: HTTP requests (with token-optimized responses), assertions, request flows, OpenAPI import, mock data, load testing, collections, environments, native export/import, Postman import/export, cURL export, response diffing. Zero config, zero dependencies.",
+  "description": "The most complete MCP server for API testing. 42 tools: HTTP requests (with token-optimized responses), assertions, request flows, OpenAPI import, mock data, load testing, collections, environments, native export/import, Postman import/export, cURL export, response diffing. Zero config, zero dependencies.",
   "type": "module",
   "bin": {
     "api-testing-mcp": "dist/index.js"
@@ -73,8 +73,8 @@
     "url": "https://github.com/cocaxcode/api-testing-mcp/issues"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.0",
-    "yaml": "^2.8.2",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "yaml": "^2.9.1",
     "zod": "^3.25.0"
   },
   "devDependencies": {

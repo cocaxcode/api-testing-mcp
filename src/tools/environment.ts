@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { maskVariables, type Storage } from '../lib/storage.js'
 import type { Environment } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerEnvironmentTools(server: McpServer, storage: Storage): void {
   // ── env_create ──
@@ -23,6 +24,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Nombre del spec API asociado (ej: "cocaxcode-api")'),
     },
+    TOOL_ANNOTATIONS.env_create,
     async (params) => {
       try {
         // Resolver grupo: explícito > auto-detectar por CWD > global
@@ -89,6 +91,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     'env_list',
     'Lista todos los entornos disponibles e indica cuál está activo.',
     {},
+    TOOL_ANNOTATIONS.env_list,
     async () => {
       try {
         const items = await storage.listEnvironments()
@@ -129,6 +132,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Entorno destino (default: entorno activo)'),
     },
+    TOOL_ANNOTATIONS.env_set,
     async (params) => {
       try {
         // Determinar entorno destino
@@ -180,6 +184,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Entorno a consultar (default: entorno activo)'),
     },
+    TOOL_ANNOTATIONS.env_get,
     async (params) => {
       try {
         const envName = params.environment ?? (await storage.getActiveEnvironment())
@@ -267,6 +272,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Entorno destino (default: entorno activo)'),
     },
+    TOOL_ANNOTATIONS.env_spec,
     async (params) => {
       try {
         const envName = params.environment ?? (await storage.getActiveEnvironment())
@@ -310,6 +316,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
       name: z.string().describe('Nombre actual del entorno'),
       new_name: z.string().describe('Nuevo nombre para el entorno'),
     },
+    TOOL_ANNOTATIONS.env_rename,
     async (params) => {
       try {
         await storage.renameEnvironment(params.name, params.new_name)
@@ -339,6 +346,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     {
       name: z.string().describe('Nombre del entorno a eliminar'),
     },
+    TOOL_ANNOTATIONS.env_delete,
     async (params) => {
       try {
         await storage.deleteEnvironment(params.name)
@@ -372,6 +380,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Ruta del proyecto (ej: C:/cocaxcode). Si se omite, cambia el entorno global'),
     },
+    TOOL_ANNOTATIONS.env_switch,
     async (params) => {
       try {
         const env = await storage.getEnvironment(params.name)
@@ -424,6 +433,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .string()
         .describe('Ruta del proyecto del que eliminar la asociación'),
     },
+    TOOL_ANNOTATIONS.env_project_clear,
     async (params) => {
       try {
         const removed = await storage.clearProjectEnvironment(params.project)
@@ -462,6 +472,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     'env_project_list',
     'Lista todos los proyectos con entornos específicos asignados.',
     {},
+    TOOL_ANNOTATIONS.env_project_list,
     async () => {
       try {
         const projectEnvs = await storage.listProjectEnvironments()
@@ -505,8 +516,9 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     'env_group_create',
     'Crea un nuevo grupo de entornos. Luego añade scopes (directorios) con env_group_add_scope.',
     {
-      name: z.string().describe('Nombre del grupo (ej: cocaxcode, optimizatusol)'),
+      name: z.string().describe('Nombre del grupo (ej: mi-empresa, cliente-acme)'),
     },
+    TOOL_ANNOTATIONS.env_group_create,
     async (params) => {
       try {
         await storage.createGroup(params.name)
@@ -525,6 +537,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     'env_group_list',
     'Lista todos los grupos con sus scopes, default y entornos.',
     {},
+    TOOL_ANNOTATIONS.env_group_list,
     async () => {
       try {
         const groups = await storage.listGroups()
@@ -550,6 +563,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     {
       name: z.string().describe('Nombre del grupo a eliminar'),
     },
+    TOOL_ANNOTATIONS.env_group_delete,
     async (params) => {
       try {
         await storage.deleteGroup(params.name)
@@ -571,6 +585,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
       group: z.string().describe('Nombre del grupo'),
       scope: z.string().optional().describe('Ruta del directorio. Si se omite, usa el directorio actual'),
     },
+    TOOL_ANNOTATIONS.env_group_add_scope,
     async (params) => {
       try {
         const scope = params.scope ?? process.cwd()
@@ -593,6 +608,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
       group: z.string().describe('Nombre del grupo'),
       scope: z.string().optional().describe('Ruta del directorio a quitar. Si se omite, usa el directorio actual'),
     },
+    TOOL_ANNOTATIONS.env_group_remove_scope,
     async (params) => {
       try {
         const scope = params.scope ?? process.cwd()
@@ -614,6 +630,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
     {
       name: z.string().describe('Nombre del entorno a marcar como default'),
     },
+    TOOL_ANNOTATIONS.env_set_default,
     async (params) => {
       try {
         const env = await storage.getEnvironment(params.name)
@@ -644,6 +661,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
       environment: z.string().describe('Nombre del entorno'),
       group: z.string().describe('Nombre del grupo. Cadena vacía "" para hacerlo global'),
     },
+    TOOL_ANNOTATIONS.env_set_group,
     async (params) => {
       try {
         const groupName = params.group || null

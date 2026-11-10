@@ -6,6 +6,7 @@ import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import type { RequestConfig } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerLoadTestTool(server: McpServer, storage: Storage): void {
   server.tool(
@@ -26,6 +27,7 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Timeout por request en ms (default: 30000)'),
     },
+    TOOL_ANNOTATIONS.load_test,
     async (params) => {
       try {
         const concurrentCount = Math.min(Math.max(params.concurrent, 1), 100)

@@ -10,7 +10,7 @@
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/v/@cocaxcode/api-testing-mcp.svg?style=flat-square&color=cb3837" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/@cocaxcode/api-testing-mcp"><img src="https://img.shields.io/npm/dm/@cocaxcode/api-testing-mcp.svg?style=flat-square" alt="npm downloads" /></a>
   <img src="https://img.shields.io/badge/tools-42-blueviolet?style=flat-square" alt="42 tools" />
-  <img src="https://img.shields.io/badge/tests-171-brightgreen?style=flat-square" alt="171 tests" />
+  <img src="https://img.shields.io/badge/tests-173-brightgreen?style=flat-square" alt="173 tests" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node" />
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
 </p>
@@ -540,7 +540,7 @@ src/
 │   ├── path.ts           # Dot-notation accessor (body.data.0.id)
 │   ├── interpolation.ts  # {{variable}} resolver
 │   └── openapi-parser.ts # $ref + allOf/oneOf/anyOf resolution
-└── __tests__/            # 10+ test suites, 171 tests
+└── __tests__/            # 14 test suites, 173 tests
 ```
 
 **Stack:** TypeScript (strict) · MCP SDK · Zod · Vitest · tsup

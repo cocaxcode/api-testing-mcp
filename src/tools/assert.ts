@@ -9,6 +9,7 @@ import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import { makeCallId } from '../lib/compress.js'
 import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 const AssertionSchema = z.object({
   path: z
@@ -144,6 +145,7 @@ export function registerAssertTool(
         .array(AssertionSchema)
         .describe('Lista de assertions a validar contra la respuesta'),
     },
+    TOOL_ANNOTATIONS.assert,
     async (params) => {
       try {
         const variables = await storage.getActiveVariables()

@@ -9,6 +9,7 @@ import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import { makeCallId } from '../lib/compress.js'
 import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig, RequestResponse } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 const FlowStepSchema = z.object({
   name: z.string().describe('Nombre del paso (ej: "login", "crear-post")'),
@@ -41,6 +42,7 @@ export function registerFlowTool(
         .optional()
         .describe('Detener al primer error (default: true)'),
     },
+    TOOL_ANNOTATIONS.flow_run,
     async (params) => {
       try {
         const stopOnError = params.stop_on_error ?? true

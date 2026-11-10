@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { AuthSchemaShape } from '../lib/schemas.js'
 import type { SavedRequest } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerCollectionTools(server: McpServer, storage: Storage): void {
   // ── collection_save ──
@@ -26,6 +27,7 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
         .optional()
         .describe('Tags para organizar (ej: ["auth", "users"])'),
     },
+    TOOL_ANNOTATIONS.collection_save,
     async (params) => {
       try {
         const now = new Date().toISOString()
@@ -66,6 +68,7 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
     {
       tag: z.string().optional().describe('Filtrar por tag'),
     },
+    TOOL_ANNOTATIONS.collection_list,
     async (params) => {
       try {
         const items = await storage.listCollections(params.tag)
@@ -102,6 +105,7 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
     {
       name: z.string().describe('Nombre del request guardado'),
     },
+    TOOL_ANNOTATIONS.collection_get,
     async (params) => {
       try {
         const saved = await storage.getCollection(params.name)
@@ -143,6 +147,7 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
     {
       name: z.string().describe('Nombre del request a eliminar'),
     },
+    TOOL_ANNOTATIONS.collection_delete,
     async (params) => {
       try {
         const deleted = await storage.deleteCollection(params.name)

@@ -4,6 +4,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Storage } from '../lib/storage.js'
 import { parseOpenApiSpec } from '../lib/openapi-parser.js'
 import { readFile } from 'node:fs/promises'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 /**
  * Parsea contenido que puede ser JSON o YAML.
@@ -63,6 +64,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
           'URL o ruta a archivo local del spec OpenAPI (JSON o YAML, ej: http://localhost:3001/api-docs-json, ./openapi.yaml)',
         ),
     },
+    TOOL_ANNOTATIONS.api_import,
     async (params) => {
       try {
         let rawDoc: Record<string, unknown>
@@ -182,6 +184,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
     'api_spec_list',
     'Lista todos los specs de API importados. Úsalo para descubrir qué APIs están disponibles.',
     {},
+    TOOL_ANNOTATIONS.api_spec_list,
     async () => {
       try {
         const items = await storage.listSpecs()
@@ -238,6 +241,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Filtrar por path (búsqueda parcial, ej: "/blog" muestra todos los que contienen /blog)'),
     },
+    TOOL_ANNOTATIONS.api_endpoints,
     async (params) => {
       try {
         const resolved = await resolveSpecName(params.name, storage)
@@ -337,6 +341,7 @@ export function registerApiSpecTools(server: McpServer, storage: Storage): void 
         .string()
         .describe('Path exacto del endpoint (ej: "/blog", "/auth/login")'),
     },
+    TOOL_ANNOTATIONS.api_endpoint_detail,
     async (params) => {
       try {
         const resolved = await resolveSpecName(params.name, storage)

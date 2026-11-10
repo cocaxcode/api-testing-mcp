@@ -29,7 +29,7 @@ FLUJO TÍPICO:
 5. Encadena requests con flow_run para flujos multi-paso (login → crear → verificar).
 
 GRUPOS Y ENTORNOS:
-- Los entornos pueden pertenecer a un GRUPO (ej: "cocaxcode", "optimizatusol").
+- Los entornos pueden pertenecer a un GRUPO (ej: "mi-empresa", "cliente-acme").
 - Un grupo tiene N scopes (directorios) que comparten sus entornos.
 - env_list filtra automaticamente: si el CWD esta en un scope de un grupo, solo muestra entornos de ese grupo.
 - Cada grupo tiene un entorno DEFAULT (persiste entre sesiones) y un ACTIVE (de sesion).

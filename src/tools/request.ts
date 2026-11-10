@@ -8,6 +8,7 @@ import { AuthSchemaShape, VerbosityShape, HttpMethodSchema } from '../lib/schema
 import { compressResponse, makeCallId } from '../lib/compress.js'
 import type { ResponseCache } from '../lib/response-cache.js'
 import type { RequestConfig } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerRequestTool(
   server: McpServer,
@@ -40,6 +41,7 @@ export function registerRequestTool(
         .describe('Configuración de autenticación'),
       ...VerbosityShape,
     },
+    TOOL_ANNOTATIONS.request,
     async (params) => {
       try {
         const variables = await storage.getActiveVariables()

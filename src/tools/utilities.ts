@@ -8,6 +8,7 @@ import { interpolateRequest } from '../lib/interpolation.js'
 import { resolveUrl } from '../lib/url.js'
 import { AuthSchema, HttpMethodSchema } from '../lib/schemas.js'
 import type { RequestConfig, AuthConfig, SavedRequest, HttpMethod, Environment } from '../lib/types.js'
+import { TOOL_ANNOTATIONS } from '../lib/annotations.js'
 
 export function registerUtilityTools(server: McpServer, storage: Storage): void {
   // ── export_curl ──
@@ -22,6 +23,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Resolver {{variables}} del entorno activo (default: true)'),
     },
+    TOOL_ANNOTATIONS.export_curl,
     async (params) => {
       try {
         const saved = await storage.getCollection(params.name)
@@ -136,6 +138,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
       request_a: DiffRequestSchema.describe('Primer request'),
       request_b: DiffRequestSchema.describe('Segundo request'),
     },
+    TOOL_ANNOTATIONS.diff_responses,
     async (params) => {
       try {
         const variables = await storage.getActiveVariables()
@@ -265,6 +268,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Status HTTP esperado para todos (default: cualquier 2xx)'),
     },
+    TOOL_ANNOTATIONS.bulk_test,
     async (params) => {
       try {
         const collections = await storage.listCollections(params.tag)
@@ -375,6 +379,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Directorio donde guardar el archivo (default: .atm/)'),
     },
+    TOOL_ANNOTATIONS.export_collection,
     async (params) => {
       try {
         const collections = await storage.listCollections(params.tag)
@@ -448,6 +453,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Sobreescribir requests existentes con el mismo nombre (default: false)'),
     },
+    TOOL_ANNOTATIONS.import_collection,
     async (params) => {
       try {
         // Auto-detect file
@@ -555,6 +561,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Directorio donde guardar el archivo (default: .atm/)'),
     },
+    TOOL_ANNOTATIONS.export_environment,
     async (params) => {
       try {
         let envName = params.name
@@ -641,6 +648,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Activar el entorno importado como entorno activo (default: false)'),
     },
+    TOOL_ANNOTATIONS.import_environment,
     async (params) => {
       try {
         // Auto-detect: if no file, find all .env.json in .atm/
@@ -751,6 +759,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Resolver {{variables}} del entorno activo (default: false)'),
     },
+    TOOL_ANNOTATIONS.export_postman_collection,
     async (params) => {
       try {
         const collections = await storage.listCollections(params.tag)
@@ -867,6 +876,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Sobreescribir requests existentes con el mismo nombre (default: false)'),
     },
+    TOOL_ANNOTATIONS.import_postman_collection,
     async (params) => {
       try {
         const raw = await readFile(params.file, 'utf-8')
@@ -957,6 +967,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Activar el entorno importado como entorno activo (default: false)'),
     },
+    TOOL_ANNOTATIONS.import_postman_environment,
     async (params) => {
       try {
         const raw = await readFile(params.file, 'utf-8')
@@ -1043,6 +1054,7 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
         .optional()
         .describe('Directorio donde guardar el archivo (default: ./postman/)'),
     },
+    TOOL_ANNOTATIONS.export_postman_environment,
     async (params) => {
       try {
         let envName = params.name

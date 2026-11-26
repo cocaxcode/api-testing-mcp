@@ -15,9 +15,9 @@ export function registerLoadTestTool(server: McpServer, storage: Storage): void 
     {
       method: HttpMethodSchema.describe('HTTP method'),
       url: z.string().describe('URL del endpoint'),
-      headers: z.record(z.string()).optional().describe('Headers HTTP'),
+      headers: z.record(z.string(), z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request'),
-      query: z.record(z.string()).optional().describe('Query parameters'),
+      query: z.record(z.string(), z.string()).optional().describe('Query parameters'),
       auth: AuthSchema.optional().describe('Autenticación'),
       concurrent: z
         .number()

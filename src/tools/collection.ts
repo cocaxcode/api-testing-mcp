@@ -16,9 +16,9 @@ export function registerCollectionTools(server: McpServer, storage: Storage): vo
         .object({
           method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']),
           url: z.string(),
-          headers: z.record(z.string()).optional(),
+          headers: z.record(z.string(), z.string()).optional(),
           body: z.any().optional(),
-          query: z.record(z.string()).optional(),
+          query: z.record(z.string(), z.string()).optional(),
           auth: z.object(AuthSchemaShape).optional(),
         })
         .describe('Configuración del request a guardar'),

@@ -26,12 +26,12 @@ export function registerRequestTool(
           'URL del endpoint. Si empieza con / se antepone BASE_URL del entorno activo. Soporta {{variables}}.',
         ),
       headers: z
-        .record(z.string())
+        .record(z.string(), z.string())
         .optional()
         .describe('Headers HTTP como key-value pairs'),
       body: z.any().optional().describe('Body del request (JSON). Soporta {{variables}}'),
       query: z
-        .record(z.string())
+        .record(z.string(), z.string())
         .optional()
         .describe('Query parameters como key-value pairs'),
       timeout: z.number().optional().describe('Timeout en milisegundos (default: 30000)'),

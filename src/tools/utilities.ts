@@ -125,9 +125,9 @@ export function registerUtilityTools(server: McpServer, storage: Storage): void 
     label: z.string().optional().describe('Etiqueta (ej: "antes", "dev", "v1")'),
     method: HttpMethodSchema,
     url: z.string(),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     body: z.any().optional(),
-    query: z.record(z.string()).optional(),
+    query: z.record(z.string(), z.string()).optional(),
     auth: AuthSchema.optional(),
   })
 

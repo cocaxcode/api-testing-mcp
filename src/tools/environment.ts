@@ -16,7 +16,7 @@ export function registerEnvironmentTools(server: McpServer, storage: Storage): v
         .optional()
         .describe('Nombre del grupo (ej: "cocaxcode"). Si se omite, auto-detecta por CWD. Para global: pasar cadena vacía ""'),
       variables: z
-        .record(z.string())
+        .record(z.string(), z.string())
         .optional()
         .describe('Variables iniciales como key-value'),
       spec: z

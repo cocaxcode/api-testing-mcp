@@ -15,12 +15,12 @@ const FlowStepSchema = z.object({
   name: z.string().describe('Nombre del paso (ej: "login", "crear-post")'),
   method: HttpMethodSchema.describe('HTTP method'),
   url: z.string().describe('URL del endpoint'),
-  headers: z.record(z.string()).optional().describe('Headers HTTP'),
+  headers: z.record(z.string(), z.string()).optional().describe('Headers HTTP'),
   body: z.any().optional().describe('Body del request'),
-  query: z.record(z.string()).optional().describe('Query parameters'),
+  query: z.record(z.string(), z.string()).optional().describe('Query parameters'),
   auth: AuthSchema.optional().describe('Autenticación'),
   extract: z
-    .record(z.string())
+    .record(z.string(), z.string())
     .optional()
     .describe(
       'Variables a extraer de la respuesta para pasos siguientes. Key = nombre variable, value = path (ej: { "TOKEN": "body.token", "USER_ID": "body.data.id" })',

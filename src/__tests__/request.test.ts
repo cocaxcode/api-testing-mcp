@@ -33,6 +33,21 @@ describe('request tool', () => {
     expect(response.size_bytes).toBeGreaterThan(0)
   })
 
+  it('valida y acepta mapas de headers y query con valores string', async () => {
+    const listed = await ctx.client.listTools()
+    const schema = listed.tools.find((tool) => tool.name === 'request')!.inputSchema as any
+    expect(schema.properties.headers.additionalProperties.type).toBe('string')
+    expect(schema.properties.query.additionalProperties.type).toBe('string')
+    const valid = await ctx.client.callTool({ name: 'request', arguments: {
+      method: 'GET', url: 'https://httpbin.org/get', headers: { 'x-test': 'ok' }, query: { q: 'ok' },
+    } })
+    expect(valid.isError).toBeFalsy()
+    const invalid = await ctx.client.callTool({ name: 'request', arguments: {
+      method: 'GET', url: 'https://httpbin.org/get', headers: { 'x-test': 42 },
+    } })
+    expect(invalid.isError).toBe(true)
+  })
+
   it('retorna timing.total_ms > 0', async () => {
     const result = await ctx.client.callTool({
       name: 'request',

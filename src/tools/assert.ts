@@ -137,9 +137,9 @@ export function registerAssertTool(
     {
       method: HttpMethodSchema.describe('HTTP method'),
       url: z.string().describe('URL del endpoint (soporta /relativa y {{variables}})'),
-      headers: z.record(z.string()).optional().describe('Headers HTTP'),
+      headers: z.record(z.string(), z.string()).optional().describe('Headers HTTP'),
       body: z.any().optional().describe('Body del request (JSON)'),
-      query: z.record(z.string()).optional().describe('Query parameters'),
+      query: z.record(z.string(), z.string()).optional().describe('Query parameters'),
       auth: AuthSchema.optional().describe('Autenticación'),
       assertions: z
         .array(AssertionSchema)

@@ -42,7 +42,9 @@ An open-source [MCP server](https://modelcontextprotocol.io) for testing APIs fr
 
 ### Start with one command
 
-Requires Node.js 20+ and Claude Code:
+Running the server requires Node.js >=20.0.0. The command below also requires Claude Code:
+
+For development (installing dev dependencies, building, and running tests), use Node.js `^20.19.0 || ^22.13.0 || >=24.0.0`. This accommodates the current development dependency engines; Node 21 and 23 are excluded. The server runtime requirement is separate from this development tooling requirement.
 
 ```bash
 claude mcp add --scope user api-testing -- npx -y @cocaxcode/api-testing-mcp@latest

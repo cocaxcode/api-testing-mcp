@@ -1,3 +1,5 @@
+![API Testing MCP — Test APIs from your AI assistant](https://raw.githubusercontent.com/cocaxcode/api-testing-mcp/main/assets/social-preview.png)
+
 <p align="center">
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">

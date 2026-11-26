@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">@cocaxcode/api-testing-mcp</h1>
   <p align="center">
-    <strong>The most complete MCP server for API testing. Period.</strong><br/>
+    <strong>Test APIs without leaving your AI assistant.</strong><br/>
     42 MCP tools &middot; Zero config &middot; Works in any MCP client
   </p>
 </p>
@@ -29,7 +29,34 @@
 
 ## Quick Overview
 
-The most complete [MCP server](https://modelcontextprotocol.io) for API testing — 42 tools, zero config, nothing else comes close. This is not just a request sender. It is a full testing workbench: HTTP requests with assertions, multi-step flows with variable extraction, OpenAPI import with schema-aware mock data, load testing with percentile metrics, response diffing across environments, bulk test runners, reusable collections, environment groups with directory scoping and persistent defaults, Postman import/export, and cURL export. All from natural conversation. No accounts, no cloud, no generated files. Everything runs inline and stores as plain JSON you own.
+An open-source [MCP server](https://modelcontextprotocol.io) for testing APIs from Claude Code, Cursor, and other MCP clients. Import an OpenAPI spec, test authenticated request flows, and reuse your Postman collections from the same conversation where you write code. The server runs locally and stores its configuration as JSON files you own.
+
+| What you need | What to ask your assistant |
+|---|---|
+| Understand an unfamiliar API | "Import my OpenAPI spec and show the user endpoints" |
+| Test an authenticated workflow | "Log in, extract the token, then fetch my profile" |
+| Check a deployment | "Compare the users endpoint between dev and staging" |
+| Reuse existing tests | "Import my Postman collection and run my saved smoke tests" |
+
+### Start with one command
+
+Requires Node.js 20+ and Claude Code:
+
+```bash
+claude mcp add --scope user api-testing -- npx -y @cocaxcode/api-testing-mcp@latest
+```
+
+Restart or reconnect your client if needed, then try a read-only request against your own development API. For an API running at `http://localhost:3000` with a `/health` endpoint:
+
+```text
+Use api-testing to GET http://localhost:3000/health and show the status and response body.
+```
+
+Replace the URL with an endpoint you control. No local API running? See the other [installation options](#installation) and [example workflows](#just-talk-to-it). Only run mutations or load tests against services you are authorised to test.
+
+Found it useful? [Star the repository](https://github.com/cocaxcode/api-testing-mcp), or [share a reproducible issue](https://github.com/cocaxcode/api-testing-mcp/issues) to help improve it.
+
+[API Testing MCP on Glama](https://glama.ai/mcp/servers/cocaxcode/api-testing-mcp)
 
 ---
 
